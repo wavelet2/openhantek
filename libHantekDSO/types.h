@@ -31,10 +31,6 @@
 
 #include <stdint.h>
 
-
-#include "helper.h"
-
-
 #define HANTEK_VENDOR_ID         0x04b5 ///< VID for Hantek DSOs with loaded fw
 #define HANTEK_EP_OUT              0x02 ///< OUT Endpoint for bulk transfers
 #define HANTEK_EP_IN               0x86 ///< IN Endpoint for bulk transfers
@@ -46,6 +42,57 @@
 #define HANTEK_CHANNELS               2 ///< Number of physical channels
 #define HANTEK_SPECIAL_CHANNELS       2 ///< Number of special channels
 
+namespace Helper {
+	//////////////////////////////////////////////////////////////////////////////
+	/// \class DataArray                                                  helper.h
+	/// \brief A class template for a simple array with a fixed size.
+	template <class T> class DataArray {
+		public:
+			DataArray(unsigned int size);
+			~DataArray();
+
+			T *data();
+			T operator[](unsigned int index);
+
+			unsigned int size() const;
+
+		protected:
+			T *array; ///< Pointer to the array holding the data
+			unsigned int _size; ///< Size of the array (Number of variables of type T)
+	};
+
+	/// \brief Initializes the data array.
+	/// \param size Size of the data array.
+	template <class T> DataArray<T>::DataArray(unsigned int size) {
+		this->array = new T[size];
+		for(unsigned int index = 0; index < size; ++index)
+			this->array[index] = 0;
+		this->_size = size;
+	}
+
+	/// \brief Deletes the allocated data array.
+	template <class T> DataArray<T>::~DataArray() {
+		delete[] this->array;
+	}
+
+	/// \brief Returns a pointer to the array data.
+	/// \return The internal data array.
+	template <class T> T *DataArray<T>::data() {
+		return this->array;
+	}
+
+	/// \brief Returns array element when using square brackets.
+	/// \return The array element.
+	template <class T> T DataArray<T>::operator[](unsigned int index) {
+		return this->array[index];
+	}
+
+	/// \brief Gets the size of the array.
+	/// \return The size of the command in bytes.
+	template <class T> unsigned int DataArray<T>::size() const {
+		return this->_size;
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// \namespace Hantek                                             hantek/types.h
@@ -813,7 +860,7 @@ namespace Hantek {
 		uint8_t triggerSlope:2; ///< The trigger slope, see Dso::Slope
 		uint8_t triggerPulse:1; ///< Pulses are causing trigger events
 	};
-	
+
 	//////////////////////////////////////////////////////////////////////////////
 	/// \class BulkSetFilter                                        hantek/types.h
 	/// \brief The BULK_SETFILTER builder.

@@ -37,11 +37,11 @@
 #include "exporter.h"
 
 #include "dataanalyzer.h"
-#include "dso.h"
+#include "dsostrings.h"
 #include "glgenerator.h"
 #include "helper.h"
 #include "settings.h"
-
+#include "dsostrings.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // class HorizontalDock
@@ -127,7 +127,7 @@ bool Exporter::doExport() {
 		painter.setPen(colorValues->voltage[this->settings->scope.trigger.source]);
 		QString levelString = Helper::valueToString(this->settings->scope.voltage[this->settings->scope.trigger.source].trigger, Helper::UNIT_VOLTS, 3);
 		QString pretriggerString = tr("%L1%").arg((int) (this->settings->scope.trigger.position * 100 + 0.5));
-		painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight), tr("%1  %2  %3  %4").arg(this->settings->scope.voltage[this->settings->scope.trigger.source].name, Dso::slopeString(this->settings->scope.trigger.slope), levelString, pretriggerString));
+		painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight), tr("%1  %2  %3  %4").arg(this->settings->scope.voltage[this->settings->scope.trigger.source].name, DsoStrings::slopeString(this->settings->scope.trigger.slope), levelString, pretriggerString));
 		
 		// Print sample count
 		painter.setPen(colorValues->text);
@@ -152,9 +152,9 @@ bool Exporter::doExport() {
 				painter.drawText(QRectF(0, top, lineHeight * 4, lineHeight), this->settings->scope.voltage[channel].name);
 				// Print coupling/math mode
 				if((unsigned int) channel < this->settings->scope.physicalChannels)
-					painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), Dso::couplingString((Dso::Coupling) this->settings->scope.voltage[channel].misc));
+					painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), DsoStrings::couplingString((Dso::Coupling) this->settings->scope.voltage[channel].misc));
 				else
-					painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), Dso::mathModeString((Dso::MathMode) this->settings->scope.voltage[channel].misc));
+					painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), DsoStrings::mathModeString((Dso::MathMode) this->settings->scope.voltage[channel].misc));
 				
 				// Print voltage gain
 				painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), Helper::valueToString(this->settings->scope.voltage[channel].gain, Helper::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));

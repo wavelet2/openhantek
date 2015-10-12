@@ -31,15 +31,21 @@
 #include <QMutex>
 #include <QTimer>
 
-
-#include "hantek/control.h"
-
-#include "helper.h"
-#include "hantek/device.h"
-#include "hantek/types.h"
-
+#include "control.h"
+#include "device.h"
+#include "types.h"
+#include "error_strings.h"
 
 namespace Hantek {
+#ifdef DEBUG
+        #include <QDebug>
+	/// \brief Print debug information with timestamp.
+	/// \param text Text that will be output via qDebug.
+	inline void timestampDebug(QString text) {
+		qDebug("%s: %s", QTime::currentTime().toString("hh:mm:ss.zzz").toAscii().constData(), text.toAscii().constData());
+	}
+#endif
+
 	/// \brief Initializes the command buffers and lists.
 	/// \param parent The parent widget.
 	Control::Control(QObject *parent) : DsoControl(parent) {
@@ -236,7 +242,7 @@ namespace Hantek {
 			return errorCode;
 		
 		BulkResponseGetCaptureState response;
-		errorCode = this->device->bulkRead(response.data(), response.getSize());
+		errorCode = this->device->bulkRead(response.data(), response.size());
 		if(errorCode < 0)
 			return errorCode;
 		
@@ -386,7 +392,7 @@ namespace Hantek {
 #ifdef DEBUG
 			static unsigned int id = 0;
 			++id;
-			Helper::timestampDebug(QString("Received packet %1").arg(id));
+			timestampDebug(QString("Received packet %1").arg(id));
 #endif
 			emit samplesAvailable(&(this->samples), this->settings.samplerate.current, this->settings.samplerate.limits->recordLengths[this->settings.recordLengthId] == UINT_MAX, &(this->samplesMutex));
 		}
@@ -1448,7 +1454,7 @@ namespace Hantek {
 			
 			errorCode = this->device->bulkCommand(this->command[command]);
 			if(errorCode < 0) {
-				qWarning("Sending bulk command %02x failed: %s", command, Helper::libUsbErrorString(errorCode).toLocal8Bit().data());
+				qWarning("Sending bulk command %02x failed: %s", command, libUsbErrorString(errorCode).toLocal8Bit().data());
 				
 				if(errorCode == LIBUSB_ERROR_NO_DEVICE) {
 					this->quit();
@@ -1468,9 +1474,9 @@ namespace Hantek {
 			Helper::timestampDebug(QString("Sending control command %1:%2").arg(QString::number(this->controlCode[control], 16), Helper::hexDump(this->control[control]->data(), this->control[control]->getSize())));
 #endif
 			
-			errorCode = this->device->controlWrite(this->controlCode[control], this->control[control]->data(), this->control[control]->getSize());
+			errorCode = this->device->controlWrite(this->controlCode[control], this->control[control]->data(), this->control[control]->size());
 			if(errorCode < 0) {
-				qWarning("Sending control command %2x failed: %s", this->controlCode[control], Helper::libUsbErrorString(errorCode).toLocal8Bit().data());
+				qWarning("Sending control command %2x failed: %s", this->controlCode[control], libUsbErrorString(errorCode).toLocal8Bit().data());
 				
 				if(errorCode == LIBUSB_ERROR_NO_DEVICE) {
 					this->quit();
@@ -1548,7 +1554,7 @@ namespace Hantek {
 					// Get data and process it, if we're still sampling
 					errorCode = this->getSamples(this->samplingStarted);
 					if(errorCode < 0)
-						qWarning("Getting sample data failed: %s", Helper::libUsbErrorString(errorCode).toLocal8Bit().data());
+						qWarning("Getting sample data failed: %s", libUsbErrorString(errorCode).toLocal8Bit().data());
 #ifdef DEBUG
 					else
 						Helper::timestampDebug(QString("Received %1 B of sampling data").arg(errorCode));
@@ -1583,7 +1589,7 @@ namespace Hantek {
 #endif
 			this->captureState = this->getCaptureState();
 			if(this->captureState < 0)
-				qWarning("Getting capture state failed: %s", Helper::libUsbErrorString(this->captureState).toLocal8Bit().data());
+				qWarning("Getting capture state failed: %s", libUsbErrorString(this->captureState).toLocal8Bit().data());
 #ifdef DEBUG
 			else if(this->captureState != lastCaptureState)
 				Helper::timestampDebug(QString("Capture state changed to %1").arg(this->captureState));
@@ -1595,7 +1601,7 @@ namespace Hantek {
 					// Get data and process it, if we're still sampling
 					errorCode = this->getSamples(this->samplingStarted);
 					if(errorCode < 0)
-						qWarning("Getting sample data failed: %s", Helper::libUsbErrorString(errorCode).toLocal8Bit().data());
+						qWarning("Getting sample data failed: %s", libUsbErrorString(errorCode).toLocal8Bit().data());
 #ifdef DEBUG
 					else
 						Helper::timestampDebug(QString("Received %1 B of sampling data").arg(errorCode));

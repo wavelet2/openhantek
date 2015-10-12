@@ -28,54 +28,10 @@
 #include <QLocale>
 #include <QStringList>
 
-#if LIBUSB_VERSION == 0
-#include <usb.h>
-#define libusb_device usb_device
-#else
-#include <libusb-1.0/libusb.h>
-#endif
-
-
 #include "helper.h"
 
 
 namespace Helper {
-	/// \brief Returns string representation for libusb errors.
-	/// \param error The error code.
-	/// \return String explaining the error.
-	QString libUsbErrorString(int error) {
-		switch(error) {
-			case LIBUSB_SUCCESS:
-				return QApplication::tr("Success (no error)");
-			case LIBUSB_ERROR_IO:
-				return QApplication::tr("Input/output error");
-			case LIBUSB_ERROR_INVALID_PARAM:
-				return QApplication::tr("Invalid parameter");
-			case LIBUSB_ERROR_ACCESS:
-				return QApplication::tr("Access denied (insufficient permissions)");
-			case LIBUSB_ERROR_NO_DEVICE:
-				return QApplication::tr("No such device (it may have been disconnected)");
-			case LIBUSB_ERROR_NOT_FOUND:
-				return QApplication::tr("Entity not found");
-			case LIBUSB_ERROR_BUSY:
-				return QApplication::tr("Resource busy");
-			case LIBUSB_ERROR_TIMEOUT:
-				return QApplication::tr("Operation timed out");
-			case LIBUSB_ERROR_OVERFLOW:
-				return QApplication::tr("Overflow");
-			case LIBUSB_ERROR_PIPE:
-				return QApplication::tr("Pipe error");
-			case LIBUSB_ERROR_INTERRUPTED:
-				return QApplication::tr("System call interrupted (perhaps due to signal)");
-			case LIBUSB_ERROR_NO_MEM:
-				return QApplication::tr("Insufficient memory");
-			case LIBUSB_ERROR_NOT_SUPPORTED:
-				return QApplication::tr("Operation not supported or unimplemented on this platform");
-			default:
-				return QApplication::tr("Other error");
-		}
-	}
-	
 	/// \brief Converts double to string containing value and (prefix+)unit (Counterpart to Helper::stringToValue).
 	/// \param value The value in prefixless units.
 	/// \param unit The unit for the value.

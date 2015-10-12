@@ -26,15 +26,10 @@
 #ifndef DATAANALYZER_H
 #define DATAANALYZER_H
 
-
 #include <vector>
 
 #include <QThread>
-
-
-#include "dso.h"
-#include "helper.h"
-
+#include "dsocontrol.h"
 
 class DsoSettings;
 class HantekDSOAThread;

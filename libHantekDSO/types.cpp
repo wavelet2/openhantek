@@ -27,7 +27,7 @@
 #include <cstring>
 
 
-#include "hantek/types.h"
+#include "types.h"
 
 
 namespace Hantek {

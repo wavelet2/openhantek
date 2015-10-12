@@ -27,32 +27,8 @@
 #define HELPER_H
 
 
-#include <cerrno>
-
 #include <QString>
 #include <QTime>
-
-
-#if LIBUSB_VERSION == 0
-#define LIBUSB_SUCCESS                                         0
-#define LIBUSB_ERROR_IO                                     -EIO
-#define LIBUSB_ERROR_INVALID_PARAM                       -EINVAL
-#define LIBUSB_ERROR_ACCESS                              -EACCES
-#define LIBUSB_ERROR_NO_DEVICE                            -ENXIO
-#define LIBUSB_ERROR_NOT_FOUND                           -ENOENT
-#define LIBUSB_ERROR_BUSY                                 -EBUSY
-#define LIBUSB_ERROR_TIMEOUT                          -ETIMEDOUT
-#define LIBUSB_ERROR_OVERFLOW                             -EFBIG
-#define LIBUSB_ERROR_PIPE                                 -EPIPE
-#define LIBUSB_ERROR_INTERRUPTED                          -EINTR
-#define LIBUSB_ERROR_NO_MEM                              -ENOMEM
-#define LIBUSB_ERROR_NOT_SUPPORTED                       -ENOSYS
-
-#define LIBUSB_ENDPOINT_IN                       USB_ENDPOINT_IN
-#define LIBUSB_ENDPOINT_OUT                     USB_ENDPOINT_OUT
-#define LIBUSB_REQUEST_TYPE_VENDOR               USB_TYPE_VENDOR
-#endif
-
 
 namespace Helper {
 	//////////////////////////////////////////////////////////////////////////////
@@ -63,9 +39,8 @@ namespace Helper {
 		UNIT_SECONDS, UNIT_HERTZ,
 		UNIT_SAMPLES, UNIT_COUNT
 	};
-	
-	QString libUsbErrorString(int error);
-	
+
+
 	QString valueToString(double value, Unit unit, int precision = -1);
 	double stringToValue(const QString &text, Unit unit, bool *ok = 0);
 	
@@ -79,57 +54,7 @@ namespace Helper {
 	inline void timestampDebug(QString text) {
 		qDebug("%s: %s", QTime::currentTime().toString("hh:mm:ss.zzz").toAscii().constData(), text.toAscii().constData());
 	}
-#endif	
-	
-	//////////////////////////////////////////////////////////////////////////////
-	/// \class DataArray                                                  helper.h
-	/// \brief A class template for a simple array with a fixed size.
-	template <class T> class DataArray {
-		public:
-			DataArray(unsigned int size);
-			~DataArray();
-			
-			T *data();
-			T operator[](unsigned int index);
-			
-			unsigned int getSize() const;
-		
-		protected:
-			T *array; ///< Pointer to the array holding the data
-			unsigned int size; ///< Size of the array (Number of variables of type T)
-	};
-	
-	/// \brief Initializes the data array.
-	/// \param size Size of the data array.
-	template <class T> DataArray<T>::DataArray(unsigned int size) {
-		this->array = new T[size];
-		for(unsigned int index = 0; index < size; ++index)
-			this->array[index] = 0;
-		this->size = size;
-	}
-	
-	/// \brief Deletes the allocated data array.
-	template <class T> DataArray<T>::~DataArray() {
-		delete[] this->array;
-	}
-	
-	/// \brief Returns a pointer to the array data.
-	/// \return The internal data array.
-	template <class T> T *DataArray<T>::data() {
-		return this->array;
-	}
-	
-	/// \brief Returns array element when using square brackets.
-	/// \return The array element.
-	template <class T> T DataArray<T>::operator[](unsigned int index) {
-		return this->array[index];
-	}
-	
-	/// \brief Gets the size of the array.
-	/// \return The size of the command in bytes.
-	template <class T> unsigned int DataArray<T>::getSize() const {
-		return this->size;
-	}
+#endif
 };
 
 

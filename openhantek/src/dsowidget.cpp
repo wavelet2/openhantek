@@ -31,7 +31,7 @@
 #include "dsowidget.h"
 
 #include "dataanalyzer.h"
-#include "dso.h"
+#include "dsostrings.h"
 #include "exporter.h"
 #include "glscope.h"
 #include "helper.h"
@@ -315,7 +315,7 @@ void DsoWidget::updateTriggerDetails() {
 	this->settingsTriggerLabel->setPalette(tablePalette);
 	QString levelString = Helper::valueToString(this->settings->scope.voltage[this->settings->scope.trigger.source].trigger, Helper::UNIT_VOLTS, 3);
 	QString pretriggerString = tr("%L1%").arg((int) (this->settings->scope.trigger.position * 100 + 0.5));
-	this->settingsTriggerLabel->setText(tr("%1  %2  %3  %4").arg(this->settings->scope.voltage[this->settings->scope.trigger.source].name, Dso::slopeString(this->settings->scope.trigger.slope), levelString, pretriggerString));
+	this->settingsTriggerLabel->setText(tr("%1  %2  %3  %4").arg(this->settings->scope.voltage[this->settings->scope.trigger.source].name, DsoStrings::slopeString(this->settings->scope.trigger.slope), levelString, pretriggerString));
 	
 	/// \todo This won't work for special trigger sources
 }
@@ -401,12 +401,12 @@ void DsoWidget::updateVoltageCoupling(unsigned int channel) {
 	if(channel >= (unsigned int) this->settings->scope.voltage.count())
 		return;
 	
-	this->measurementMiscLabel[channel]->setText(Dso::couplingString((Dso::Coupling) this->settings->scope.voltage[channel].misc));
+	this->measurementMiscLabel[channel]->setText(DsoStrings::couplingString((Dso::Coupling) this->settings->scope.voltage[channel].misc));
 }
 
 /// \brief Handles modeChanged signal from the voltage dock.
 void DsoWidget::updateMathMode() {
-	this->measurementMiscLabel[this->settings->scope.physicalChannels]->setText(Dso::mathModeString((Dso::MathMode) this->settings->scope.voltage[this->settings->scope.physicalChannels].misc));
+	this->measurementMiscLabel[this->settings->scope.physicalChannels]->setText(DsoStrings::mathModeString((Dso::MathMode) this->settings->scope.voltage[this->settings->scope.physicalChannels].misc));
 }
 
 /// \brief Handles gainChanged signal from the voltage dock.

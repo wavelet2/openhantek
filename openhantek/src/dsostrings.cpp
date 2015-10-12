@@ -22,22 +22,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
-#include <QApplication>
+#include <QCoreApplication>
 
+#include "dsostrings.h"
 
-#include "dso.h"
-
-
-namespace Dso {
+namespace DsoStrings {
 	/// \brief Return string representation of the given channel mode.
 	/// \param mode The ::ChannelMode that should be returned as string.
 	/// \return The string that should be used in labels etc., empty when invalid.
 	QString channelModeString(ChannelMode mode) {
 		switch(mode) {
 			case CHANNELMODE_VOLTAGE:
-				return QApplication::tr("Voltage");
+				return QCoreApplication::tr("Voltage");
 			case CHANNELMODE_SPECTRUM:
-				return QApplication::tr("Spectrum");
+				return QCoreApplication::tr("Spectrum");
 			default:
 				return QString();
 		}
@@ -49,9 +47,9 @@ namespace Dso {
 	QString graphFormatString(GraphFormat format) {
 		switch(format) {
 			case GRAPHFORMAT_TY:
-				return QApplication::tr("T - Y");
+				return QCoreApplication::tr("T - Y");
 			case GRAPHFORMAT_XY:
-				return QApplication::tr("X - Y");
+				return QCoreApplication::tr("X - Y");
 			default:
 				return QString();
 		}
@@ -63,11 +61,11 @@ namespace Dso {
 	QString couplingString(Coupling coupling) {
 		switch(coupling) {
 			case COUPLING_AC:
-				return QApplication::tr("AC");
+				return QCoreApplication::tr("AC");
 			case COUPLING_DC:
-				return QApplication::tr("DC");
+				return QCoreApplication::tr("DC");
 			case COUPLING_GND:
-				return QApplication::tr("GND");
+				return QCoreApplication::tr("GND");
 			default:
 				return QString();
 		}
@@ -79,11 +77,11 @@ namespace Dso {
 	QString mathModeString(MathMode mode) {
 		switch(mode) {
 			case MATHMODE_1ADD2:
-				return QApplication::tr("CH1 + CH2");
+				return QCoreApplication::tr("CH1 + CH2");
 			case MATHMODE_1SUB2:
-				return QApplication::tr("CH1 - CH2");
+				return QCoreApplication::tr("CH1 - CH2");
 			case MATHMODE_2SUB1:
-				return QApplication::tr("CH2 - CH1");
+				return QCoreApplication::tr("CH2 - CH1");
 			default:
 				return QString();
 		}
@@ -95,11 +93,11 @@ namespace Dso {
 	QString triggerModeString(TriggerMode mode) {
 		switch(mode) {
 			case TRIGGERMODE_AUTO:
-				return QApplication::tr("Auto");
+				return QCoreApplication::tr("Auto");
 			case TRIGGERMODE_NORMAL:
-				return QApplication::tr("Normal");
+				return QCoreApplication::tr("Normal");
 			case TRIGGERMODE_SINGLE:
-				return QApplication::tr("Single");
+				return QCoreApplication::tr("Single");
 			default:
 				return QString();
 		}
@@ -125,35 +123,35 @@ namespace Dso {
 	QString windowFunctionString(WindowFunction window) {
 		switch(window) {
 			case WINDOW_RECTANGULAR:
-				return QApplication::tr("Rectangular");
+				return QCoreApplication::tr("Rectangular");
 			case WINDOW_HAMMING:
-				return QApplication::tr("Hamming");
+				return QCoreApplication::tr("Hamming");
 			case WINDOW_HANN:
-				return QApplication::tr("Hann");
+				return QCoreApplication::tr("Hann");
 			case WINDOW_COSINE:
-				return QApplication::tr("Cosine");
+				return QCoreApplication::tr("Cosine");
 			case WINDOW_LANCZOS:
-				return QApplication::tr("Lanczos");
+				return QCoreApplication::tr("Lanczos");
 			case WINDOW_BARTLETT:
-				return QApplication::tr("Bartlett");
+				return QCoreApplication::tr("Bartlett");
 			case WINDOW_TRIANGULAR:
-				return QApplication::tr("Triangular");
+				return QCoreApplication::tr("Triangular");
 			case WINDOW_GAUSS:
-				return QApplication::tr("Gauss");
+				return QCoreApplication::tr("Gauss");
 			case WINDOW_BARTLETTHANN:
-				return QApplication::tr("Bartlett-Hann");
+				return QCoreApplication::tr("Bartlett-Hann");
 			case WINDOW_BLACKMAN:
-				return QApplication::tr("Blackman");
+				return QCoreApplication::tr("Blackman");
 			//case WINDOW_KAISER:
-			//	return QApplication::tr("Kaiser");
+			//	return QCoreApplication::tr("Kaiser");
 			case WINDOW_NUTTALL:
-				return QApplication::tr("Nuttall");
+				return QCoreApplication::tr("Nuttall");
 			case WINDOW_BLACKMANHARRIS:
-				return QApplication::tr("Blackman-Harris");
+				return QCoreApplication::tr("Blackman-Harris");
 			case WINDOW_BLACKMANNUTTALL:
-				return QApplication::tr("Blackman-Nuttall");
+				return QCoreApplication::tr("Blackman-Nuttall");
 			case WINDOW_FLATTOP:
-				return QApplication::tr("Flat top");
+				return QCoreApplication::tr("Flat top");
 			default:
 				return QString();
 		}
@@ -165,11 +163,11 @@ namespace Dso {
 	QString interpolationModeString(InterpolationMode interpolation) {
 		switch(interpolation) {
 			case INTERPOLATION_OFF:
-				return QApplication::tr("Off");
+				return QCoreApplication::tr("Off");
 			case INTERPOLATION_LINEAR:
-				return QApplication::tr("Linear");
+				return QCoreApplication::tr("Linear");
 			case INTERPOLATION_SINC:
-				return QApplication::tr("Sinc");
+				return QCoreApplication::tr("Sinc");
 			default:
 				return QString();
 		}

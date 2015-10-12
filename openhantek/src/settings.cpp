@@ -27,8 +27,6 @@
 
 
 #include "settings.h"
-
-#include "dso.h"
 #include "dsowidget.h"
 
 

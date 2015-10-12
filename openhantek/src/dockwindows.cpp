@@ -34,6 +34,7 @@
 #include "settings.h"
 #include "sispinbox.h"
 #include "helper.h"
+#include "dsostrings.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +73,7 @@ HorizontalDock::HorizontalDock(DsoSettings *settings, QWidget *parent, Qt::Windo
 	this->formatLabel = new QLabel(tr("Format"));
 	this->formatComboBox = new QComboBox();
 	for(int format = Dso::GRAPHFORMAT_TY; format < Dso::GRAPHFORMAT_COUNT; ++format)
-		this->formatComboBox->addItem(Dso::graphFormatString((Dso::GraphFormat) format));
+		this->formatComboBox->addItem(DsoStrings::graphFormatString((Dso::GraphFormat) format));
 	
 	this->dockLayout = new QGridLayout();
 	this->dockLayout->setColumnMinimumWidth(0, 64);
@@ -274,12 +275,12 @@ TriggerDock::TriggerDock(DsoSettings *settings, const QStringList *specialTrigge
 	this->modeLabel = new QLabel(tr("Mode"));
 	this->modeComboBox = new QComboBox();
 	for(int mode = Dso::TRIGGERMODE_AUTO; mode < Dso::TRIGGERMODE_COUNT; ++mode)
-		this->modeComboBox->addItem(Dso::triggerModeString((Dso::TriggerMode) mode));
+		this->modeComboBox->addItem(DsoStrings::triggerModeString((Dso::TriggerMode) mode));
 
 	this->slopeLabel = new QLabel(tr("Slope"));
 	this->slopeComboBox = new QComboBox();
 	for(int slope = Dso::SLOPE_POSITIVE; slope < Dso::SLOPE_COUNT; ++slope)
-		this->slopeComboBox->addItem(Dso::slopeString((Dso::Slope) slope));
+		this->slopeComboBox->addItem(DsoStrings::slopeString((Dso::Slope) slope));
 
 	this->sourceLabel = new QLabel(tr("Source"));
 	this->sourceComboBox = new QComboBox();
@@ -532,10 +533,10 @@ VoltageDock::VoltageDock(DsoSettings *settings, QWidget *parent, Qt::WindowFlags
 	
 	// Initialize lists for comboboxes
 	for(int coupling = Dso::COUPLING_AC; coupling < Dso::COUPLING_COUNT; ++coupling)
-		this->couplingStrings.append(Dso::couplingString((Dso::Coupling) coupling));
+		this->couplingStrings.append(DsoStrings::couplingString((Dso::Coupling) coupling));
 	
 	for(int mode = Dso::MATHMODE_1ADD2; mode < Dso::MATHMODE_COUNT; ++mode)
-		this->modeStrings.append(Dso::mathModeString((Dso::MathMode) mode));
+		this->modeStrings.append(DsoStrings::mathModeString((Dso::MathMode) mode));
 	
 	this->gainSteps             << 1e-2 << 2e-2 << 5e-2 << 1e-1 << 2e-1 << 5e-1
 			<<  1e0 <<  2e0 <<  5e0;          ///< Voltage steps in V/div

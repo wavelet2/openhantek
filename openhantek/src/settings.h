@@ -34,9 +34,7 @@
 #include <QSize>
 #include <QString>
 
-
-#include "dso.h"
-
+#include "dsostrings.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// \struct DsoSettingsOptionsWindowPanel                             settings.h

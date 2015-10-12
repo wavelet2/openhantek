@@ -28,7 +28,7 @@
 #include <QTranslator>
 
 
-#include "openhantek.h"
+#include "OpenHantekMainWindow.h"
 
 
 /// \brief Initialize resources and translations and show the main window.
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 	openHantekApplication.installTranslator(&qtTranslator);
 
 	QTranslator openHantekTranslator;
-	openHantekTranslator.load("openhantek_" + QLocale::system().name(), QMAKE_TRANSLATIONS_PATH);
+	openHantekTranslator.load("openhantek_" + QLocale::system().name(), QCoreApplication::applicationDirPath()+"/translations");
 	openHantekApplication.installTranslator(&openHantekTranslator);
 
 	OpenHantekMainWindow *openHantekMainWindow = new OpenHantekMainWindow();

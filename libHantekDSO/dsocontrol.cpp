@@ -1,11 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file glscope.h
-/// \brief Declares the GlScope class.
+//  dsocontrol.cpp
 //
-//  Copyright (C) 2008, 2009  Oleg Khudyakov
-//  prcoder@potrebitel.ru
 //  Copyright (C) 2010  Oliver Haag
 //  oliver.haag@gmail.com
 //
@@ -25,45 +22,39 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
-#ifndef GLSCOPE_H
-#define GLSCOPE_H
-
-
-#include <QtOpenGL>
-
-#include "glgenerator.h"
-
-class DataAnalyzer;
-class DsoSettings;
-
+#include "dsocontrol.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-/// \class GlScope                                                     glscope.h
-/// \brief OpenGL accelerated widget that displays the oscilloscope screen.
-class GlScope : public QGLWidget {
-	Q_OBJECT
-	
-	public:
-		GlScope(DsoSettings *settings, QWidget* parent = 0);
-		~GlScope();
-		
-		void setGenerator(GlGenerator *generator);
-		void setZoomMode(bool zoomed);
-	
-	protected:
-		void initializeGL();
-		void paintGL();
-		void resizeGL(int width, int height);
-		
-		void drawGrid();
-	
-	private:
-		GlGenerator *generator;
-		DsoSettings *settings;
-		
-		std::vector<GLfloat> vaMarker[2];
-		bool zoomed;
-};
+// class DsoControl
+/// \brief Initialize variables.
+DsoControl::DsoControl(QObject *parent) : QThread(parent) {
+	this->sampling = false;
+}
 
+/// \brief Start sampling process.
+void DsoControl::startSampling() {
+	this->sampling = true;
+	emit samplingStarted();
+}
 
-#endif
+/// \brief Stop sampling process.
+void DsoControl::stopSampling() {
+	this->sampling = false;
+	emit samplingStopped();
+}
+
+/// \brief Get a list of the names of the special trigger sources.
+const QStringList *DsoControl::getSpecialTriggerSources() {
+	return &(this->specialTriggerSources);
+}
+
+/// \brief Try to connect to the oscilloscope.
+void DsoControl::connectDevice() {
+	this->sampling = false;
+	this->start();
+}
+
+/// \brief Disconnect the oscilloscope.
+void DsoControl::disconnectDevice() {
+	this->quit();
+}

@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-//  dsocontrol.cpp
+/// \file dso.h
+/// \brief Defines various constants, enums and functions for DSO settings.
 //
 //  Copyright (C) 2010  Oliver Haag
 //  oliver.haag@gmail.com
@@ -22,40 +23,30 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
+#ifndef DSO_H
+#define DSO_H
+
+
+#include <QString>
 #include "dsocontrol.h"
+
+#define MARKER_COUNT                  2 ///< Number of markers
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// class DsoControl
-/// \brief Initialize variables.
-DsoControl::DsoControl(QObject *parent) : QThread(parent) {
-	this->sampling = false;
+/// \namespace Dso                                                         dso.h
+/// \brief All DSO specific things for different modes and so on.
+namespace DsoStrings {
+    using namespace Dso;
+	QString channelModeString(ChannelMode mode);
+	QString graphFormatString(GraphFormat format);
+	QString couplingString(Coupling coupling);
+	QString mathModeString(MathMode mode);
+	QString triggerModeString(TriggerMode mode);
+	QString slopeString(Slope slope);
+	QString windowFunctionString(WindowFunction window);
+	QString interpolationModeString(InterpolationMode interpolation);
 }
 
-/// \brief Start sampling process.
-void DsoControl::startSampling() {
-	this->sampling = true;
-	emit samplingStarted();
-}
 
-/// \brief Stop sampling process.
-void DsoControl::stopSampling() {
-	this->sampling = false;
-	emit samplingStopped();
-}
-
-/// \brief Get a list of the names of the special trigger sources.
-const QStringList *DsoControl::getSpecialTriggerSources() {
-	return &(this->specialTriggerSources);
-}
-
-/// \brief Try to connect to the oscilloscope.
-void DsoControl::connectDevice() {
-	this->sampling = false;
-	this->start();
-}
-
-/// \brief Disconnect the oscilloscope.
-void DsoControl::disconnectDevice() {
-	this->quit();
-}
+#endif

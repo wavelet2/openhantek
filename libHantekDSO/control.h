@@ -28,14 +28,10 @@
 #ifndef HANTEK_CONTROL_H
 #define HANTEK_CONTROL_H
 
-
 #include <QMutex>
 
-
 #include "dsocontrol.h"
-#include "helper.h"
-#include "hantek/types.h"
-
+#include "types.h"
 
 class QTimer;
 

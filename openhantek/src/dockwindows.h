@@ -30,8 +30,6 @@
 #include <QDockWidget>
 #include <QGridLayout>
 
-
-#include "dso.h"
 #include "settings.h"
 
 

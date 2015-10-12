@@ -31,8 +31,6 @@
 
 
 #include "dsowidget.h"
-#include "dso.h"
-
 
 class ColorBox;
 class DsoSettings;

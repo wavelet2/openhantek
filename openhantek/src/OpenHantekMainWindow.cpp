@@ -35,7 +35,7 @@
 #include <QStatusBar>
 
 
-#include "openhantek.h"
+#include "OpenHantekMainWindow.h"
 
 #include "configdialog.h"
 #include "dataanalyzer.h"
@@ -43,7 +43,7 @@
 #include "dsocontrol.h"
 #include "dsowidget.h"
 #include "settings.h"
-#include "hantek/control.h"
+#include "libHantekDSO/control.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
