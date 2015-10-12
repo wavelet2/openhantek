@@ -30,6 +30,7 @@
 
 #include <QMutex>
 
+#include "container_pushback_stream.h"
 #include "dsocontrol.h"
 #include "types.h"
 
@@ -105,8 +106,8 @@ namespace Hantek {
 	struct ControlSamplerateLimits {
 		double base; ///< The base for sample rate calculations
 		double max; ///< The maximum sample rate
-		unsigned int maxDownsampler; ///< The maximum downsampling ratio
-		QList<unsigned int> recordLengths; ///< Available record lengths, UINT_MAX means rolling
+		unsigned maxDownsampler; ///< The maximum downsampling ratio
+		std::vector<unsigned> recordLengths; ///< Available record lengths, UINT_MAX means rolling
 	};
 	
 	//////////////////////////////////////////////////////////////////////////////
@@ -203,7 +204,7 @@ namespace Hantek {
 			~Control();
 			
 			unsigned int getChannelCount();
-			QList<unsigned int> *getAvailableRecordLengths();
+			std::vector<unsigned> *getAvailableRecordLengths();
 			double getMinSamplerate();
 			double getMaxSamplerate();
 		

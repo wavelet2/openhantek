@@ -12,10 +12,10 @@ find_path(LIBUSB_INCLUDE_DIR
 if (libusb_USE_STATIC_LIBS AND NOT MSVC)
     set (LIBUSB_LIB_PREFIX "lib" CACHE INTERNAL "libusb library name prefox passed to find_library")
     set (LIBUSB_LIB_SUFFIX ".a" CACHE INTERNAL "libusb library name suffix passed to find_library")
-else (libusb_USE_STATIC_LIBS AND NOT MSVC)
+else ()
     set (LIBUSB_LIB_PREFIX "" CACHE INTERNAL "libusb library name prefox passed to find_library")
     set (LIBUSB_LIB_SUFFIX "" CACHE INTERNAL "libusb library name suffix passed to find_library")
-endif (libusb_USE_STATIC_LIBS AND NOT MSVC)
+endif ()
 
 find_library(LIBUSB_LIBRARY
     NAMES
@@ -24,6 +24,9 @@ find_library(LIBUSB_LIBRARY
         /usr/local/lib
         /opt/local/lib
         /usr/lib
+        /lib64/
+        /usr/lib/i386-linux-gnu/
+        /usr/lib/x86_64-linux-gnu/
 )
 
 include(FindPackageHandleStandardArgs)

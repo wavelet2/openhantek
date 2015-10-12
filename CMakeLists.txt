@@ -10,11 +10,14 @@ SET(CMAKE_CXX_FLAGS "-Wall -fno-rtti")
 SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g")
 SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -DQT_NO_DEBUG_OUTPUT")
 SET(CMAKE_CXX_FLAGS_DEBUG  "-O0 -g -DDEBUG")
+if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
 
 # Build Hantek DSO library
 add_subdirectory(libHantekDSO)
 
-project(OpenHantek CXX)
+project(OpenHantek CXX C)
 
 # Find external libraries
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/")
@@ -44,7 +47,7 @@ add_subdirectory(openhantek/res)
 # make executable
 add_executable(${PROJECT_NAME} ${SRC} ${HEADERS} ${QRC})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::PrintSupport Qt5::OpenGL libHantekDSO ${OPENGL_LIBRARIES} ${FFTW_LIBRARIES})
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
+#target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 
 # install commands
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ".")

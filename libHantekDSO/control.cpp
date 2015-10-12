@@ -152,7 +152,7 @@ namespace Hantek {
 	
 	/// \brief Get available record lengths for this oscilloscope.
 	/// \return The number of physical channels, empty list for continuous.
-	QList<unsigned int> *Control::getAvailableRecordLengths() {
+	std::vector<unsigned> *Control::getAvailableRecordLengths() {
 		return &this->settings.samplerate.limits->recordLengths;
 	}
 	

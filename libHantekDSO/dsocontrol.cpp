@@ -44,7 +44,7 @@ void DsoControl::stopSampling() {
 }
 
 /// \brief Get a list of the names of the special trigger sources.
-const QStringList *DsoControl::getSpecialTriggerSources() {
+const std::vector<QString> *DsoControl::getSpecialTriggerSources() {
 	return &(this->specialTriggerSources);
 }
 

@@ -29,7 +29,7 @@
 
 #include <vector>
 
-#include <QStringList>
+#include <QString>
 #include <QThread>
 class QMutex;
 
@@ -145,16 +145,16 @@ class DsoControl : public QThread {
 		DsoControl(QObject *parent = 0);
 		
 		virtual unsigned int getChannelCount() = 0; ///< Get the number of channels for this oscilloscope
-		virtual QList<unsigned int> *getAvailableRecordLengths() = 0; ///< Get available record lengths, empty list for continuous
+		virtual std::vector<unsigned> *getAvailableRecordLengths() = 0; ///< Get available record lengths, empty list for continuous
 		virtual double getMinSamplerate() = 0; ///< The minimum samplerate supported
 		virtual double getMaxSamplerate() = 0; ///< The maximum samplerate supported
 		
-		const QStringList *getSpecialTriggerSources();
+		const std::vector<QString> *getSpecialTriggerSources();
 	
 	protected:
 		bool sampling; ///< true, if the oscilloscope is taking samples
 		
-		QStringList specialTriggerSources; ///< Names of the special trigger sources
+		std::vector<QString> specialTriggerSources; ///< Names of the special trigger sources
 		
 	signals:
 		void deviceConnected(); ///< The oscilloscope device has been disconnected
@@ -164,7 +164,7 @@ class DsoControl : public QThread {
 		void statusMessage(const QString &message, int timeout); ///< Status message about the oscilloscope
 		void samplesAvailable(const std::vector<std::vector<double> > *data, double samplerate, bool append, QMutex *mutex); ///< New sample data is available
 		
-		void availableRecordLengthsChanged(const QList<unsigned int> &recordLengths); ///< The available record lengths, empty list for continuous
+		void availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths); ///< The available record lengths, empty list for continuous
 		void samplerateLimitsChanged(double minimum, double maximum); ///< The minimum or maximum samplerate has changed
 		void recordLengthChanged(unsigned long duration); ///< The record length has changed
 		void recordTimeChanged(double duration); ///< The record time duration has changed
