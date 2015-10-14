@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file exporter.h
 /// \brief Declares the Exporter class.
 //
 //  Copyright (C) 2010  Oliver Haag
@@ -31,7 +30,7 @@
 #include <QSize>
 
 
-class DsoSettings;
+class OpenHantekSettings;
 class DataAnalyzer;
 
 
@@ -39,34 +38,34 @@ class DataAnalyzer;
 /// \enum ExportFormat                                                exporter.h
 /// \brief Possible file formats for the export.
 enum ExportFormat {
-	EXPORT_FORMAT_PRINTER,
+    EXPORT_FORMAT_PRINTER,
     EXPORT_FORMAT_PDF,
-	EXPORT_FORMAT_IMAGE,
-	EXPORT_FORMAT_CSV
+    EXPORT_FORMAT_IMAGE,
+    EXPORT_FORMAT_CSV
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-/// \class Exporter                                                   exporter.h
+///
 /// \brief Exports the oscilloscope screen to a file or prints it.
 class Exporter : public QObject {
-	Q_OBJECT
-	
-	public:
-		Exporter(DsoSettings *settings, DataAnalyzer *dataAnalyzer, QWidget *parent = 0);
-		~Exporter();
-		
-		void setFilename(QString filename);
-		void setFormat(ExportFormat format);
-		
-		bool doExport();
-	
-	private:
-		DataAnalyzer *dataAnalyzer;
-		DsoSettings *settings;
-		
-		QString filename;
-		ExportFormat format;
-		QSize size;
+    Q_OBJECT
+
+    public:
+        Exporter(OpenHantekSettings *settings, DataAnalyzer *dataAnalyzer, QWidget *parent = 0);
+        ~Exporter();
+
+        void setFilename(QString filename);
+        void setFormat(ExportFormat format);
+
+        bool doExport();
+
+    private:
+        DataAnalyzer *dataAnalyzer;
+        OpenHantekSettings *settings;
+
+        QString filename;
+        ExportFormat format;
+        QSize size;
 };
 
 

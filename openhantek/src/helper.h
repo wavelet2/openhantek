@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file helper.h
 /// \brief Provides miscellaneous helper functions.
 //
 //  Copyright (C) 2010  Oliver Haag
@@ -31,30 +30,17 @@
 #include <QTime>
 
 namespace Helper {
-	//////////////////////////////////////////////////////////////////////////////
-	/// \enum Unit                                                        helper.h
-	/// \brief The various units supported by valueToString.
-	enum Unit {
-		UNIT_VOLTS, UNIT_DECIBEL,
-		UNIT_SECONDS, UNIT_HERTZ,
-		UNIT_SAMPLES, UNIT_COUNT
-	};
+    //////////////////////////////////////////////////////////////////////////////
+    /// \enum Unit                                                        helper.h
+    /// \brief The various units supported by valueToString.
+    enum Unit {
+        UNIT_VOLTS, UNIT_DECIBEL,
+        UNIT_SECONDS, UNIT_HERTZ,
+        UNIT_SAMPLES, UNIT_COUNT
+    };
 
-
-	QString valueToString(double value, Unit unit, int precision = -1);
-	double stringToValue(const QString &text, Unit unit, bool *ok = 0);
-	
-#ifdef DEBUG
-	QString hexDump(unsigned char *data, unsigned int length);
-	unsigned int hexParse(const QString dump, unsigned char *data, unsigned int length);
-	inline void timestampDebug(QString text);
-	
-	/// \brief Print debug information with timestamp.
-	/// \param text Text that will be output via qDebug.
-	inline void timestampDebug(QString text) {
-		qDebug("%s: %s", QTime::currentTime().toString("hh:mm:ss.zzz").toAscii().constData(), text.toAscii().constData());
-	}
-#endif
+    QString valueToString(double value, Unit unit, int precision = -1);
+    double stringToValue(const QString &text, Unit unit, bool *ok = 0);
 };
 
 

@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file glgenerator.h
 /// \brief Declares the GlScope class.
 //
 //  Copyright (C) 2008, 2009  Oleg Khudyakov
@@ -33,7 +32,6 @@
 
 #include <QGLWidget>
 #include <QObject>
-#include "dsocontrol.h"
 
 #define DIVS_TIME                  10.0 ///< Number of horizontal screen divs
 #define DIVS_VOLTAGE                8.0 ///< Number of vertical screen divs
@@ -41,41 +39,41 @@
 
 
 class DataAnalyzer;
-class DsoSettings;
+class OpenHantekSettings;
 class GlScope;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// \class GlGenerator                                             glgenerator.h
+///
 /// \brief Generates the vertex arrays for the GlScope classes.
 class GlGenerator : public QObject {
-	Q_OBJECT
-	
-	friend class GlScope;
-	
-	public:
-		GlGenerator(DsoSettings *settings, QObject *parent = 0);
-		~GlGenerator();
-		
-		void setDataAnalyzer(DataAnalyzer *dataAnalyzer);
-	
-	protected:
-		void generateGrid();
-	
-	private:
-		DataAnalyzer *dataAnalyzer;
-		DsoSettings *settings;
-		
-		std::vector<std::deque<std::vector<GLfloat> > > vaChannel[Dso::CHANNELMODE_COUNT];
-		std::vector<GLfloat> vaGrid[3];
-		
-		unsigned int digitalPhosphorDepth;
-	
-	public slots:
-		void generateGraphs();
-	
-	signals:
-		void graphsGenerated(); ///< The graphs are ready to be drawn
+    Q_OBJECT
+
+    friend class GlScope;
+
+    public:
+        GlGenerator(OpenHantekSettings *settings, QObject *parent = 0);
+        ~GlGenerator();
+
+        void setDataAnalyzer(DataAnalyzer *dataAnalyzer);
+
+    protected:
+        void generateGrid();
+
+    private:
+        DataAnalyzer *dataAnalyzer;
+        OpenHantekSettings *settings;
+
+        std::vector<std::deque<std::vector<GLfloat> > > vaChannel[CHANNELMODE_COUNT];
+        std::vector<GLfloat> vaGrid[3];
+
+        unsigned int digitalPhosphorDepth;
+
+    public slots:
+        void generateGraphs();
+
+    signals:
+        void graphsGenerated(); ///< The graphs are ready to be drawn
 };
 
 

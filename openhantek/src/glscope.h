@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file glscope.h
 /// \brief Declares the GlScope class.
 //
 //  Copyright (C) 2008, 2009  Oleg Khudyakov
@@ -34,35 +33,35 @@
 #include "glgenerator.h"
 
 class DataAnalyzer;
-class DsoSettings;
+class OpenHantekSettings;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// \class GlScope                                                     glscope.h
+///
 /// \brief OpenGL accelerated widget that displays the oscilloscope screen.
 class GlScope : public QGLWidget {
-	Q_OBJECT
-	
-	public:
-		GlScope(DsoSettings *settings, QWidget* parent = 0);
-		~GlScope();
-		
-		void setGenerator(GlGenerator *generator);
-		void setZoomMode(bool zoomed);
-	
-	protected:
-		void initializeGL();
-		void paintGL();
-		void resizeGL(int width, int height);
-		
-		void drawGrid();
-	
-	private:
-		GlGenerator *generator;
-		DsoSettings *settings;
-		
-		std::vector<GLfloat> vaMarker[2];
-		bool zoomed;
+    Q_OBJECT
+
+    public:
+        GlScope(OpenHantekSettings *settings, QWidget* parent = 0);
+        ~GlScope();
+
+        void setGenerator(GlGenerator *generator);
+        void setZoomMode(bool zoomed);
+
+    protected:
+        void initializeGL();
+        void paintGL();
+        void resizeGL(int width, int height);
+
+        void drawGrid();
+
+    private:
+        GlGenerator *generator;
+        OpenHantekSettings *settings;
+
+        std::vector<GLfloat> vaMarker[2];
+        bool zoomed;
 };
 
 

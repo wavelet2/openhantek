@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file configdialog.h
 /// \brief Declares the DsoConfigDialog class.
 //
 //  Copyright (C) 2010  Oliver Haag
@@ -50,7 +49,7 @@ class DsoConfigAnalysisPage;
 class DsoConfigColorsPage;
 class DsoConfigFilesPage;
 class DsoConfigScopePage;
-class DsoSettings;
+class OpenHantekSettings;
 
 class QHBoxLayout;
 class QListWidget;
@@ -61,39 +60,39 @@ class QVBoxLayout;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/// \class DsoConfigDialog                                        configdialog.h
+///
 /// \brief The dialog for the configuration options.
 class DsoConfigDialog : public QDialog {
-	Q_OBJECT
-	
-	public:
-		DsoConfigDialog(DsoSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
-		~DsoConfigDialog();
-	
-	public slots:
-		void accept();
-		void apply();
-		
-		void changePage(QListWidgetItem *current, QListWidgetItem *previous);
-	
-	private:
-		void createIcons();
-		
-		DsoSettings *settings;
-		
-		QVBoxLayout *mainLayout;
-		QHBoxLayout *horizontalLayout;
-		QHBoxLayout *buttonsLayout;
-		
-		QListWidget *contentsWidget;
-		QStackedWidget *pagesWidget;
-		
-		DsoConfigAnalysisPage *analysisPage;
-		DsoConfigColorsPage *colorsPage;
-		DsoConfigFilesPage *filesPage;
-		DsoConfigScopePage *scopePage;
-		
-		QPushButton *acceptButton, *applyButton, *rejectButton;
+    Q_OBJECT
+
+    public:
+        DsoConfigDialog(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
+        ~DsoConfigDialog();
+
+    public slots:
+        void accept();
+        void apply();
+
+        void changePage(QListWidgetItem *current, QListWidgetItem *previous);
+
+    private:
+        void createIcons();
+
+        OpenHantekSettings *settings;
+
+        QVBoxLayout *mainLayout;
+        QHBoxLayout *horizontalLayout;
+        QHBoxLayout *buttonsLayout;
+
+        QListWidget *contentsWidget;
+        QStackedWidget *pagesWidget;
+
+        DsoConfigAnalysisPage *analysisPage;
+        DsoConfigColorsPage *colorsPage;
+        DsoConfigFilesPage *filesPage;
+        DsoConfigScopePage *scopePage;
+
+        QPushButton *acceptButton, *applyButton, *rejectButton;
 };
 
 

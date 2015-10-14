@@ -1,6 +1,5 @@
 project(OpenHantek CXX C)
 
-find_package(FFTW REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5OpenGL REQUIRED)
@@ -11,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 
 # include directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-include_directories(. widgets preferences)
+include_directories(src/ src/widgets src/preferences)
 
 # collect sources and other files
 file(GLOB_RECURSE SRC "src/*.cpp")
@@ -25,7 +24,7 @@ add_subdirectory(res)
 
 # make executable
 add_executable(${PROJECT_NAME} ${SRC} ${HEADERS} ${QRC})
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::PrintSupport Qt5::OpenGL libHantekDSO ${OPENGL_LIBRARIES} ${FFTW_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::PrintSupport Qt5::OpenGL libusbDSO libOpenHantek libPostprocessingDSO ${OPENGL_LIBRARIES} )
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 
 # install commands

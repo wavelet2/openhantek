@@ -1,7 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \file dso.h
 /// \brief Defines various constants, enums and functions for DSO settings.
 //
 //  Copyright (C) 2010  Oliver Haag
@@ -28,25 +27,27 @@
 
 
 #include <QString>
-#include "dsocontrol.h"
-
-#define MARKER_COUNT                  2 ///< Number of markers
-
+#include "dsoSettings.h"
+#include "parameters.h"
+#include "dataAnalyzerSettings.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// \namespace Dso                                                         dso.h
 /// \brief All DSO specific things for different modes and so on.
 namespace DsoStrings {
-    using namespace Dso;
-	QString channelModeString(ChannelMode mode);
-	QString graphFormatString(GraphFormat format);
-	QString couplingString(Coupling coupling);
-	QString mathModeString(MathMode mode);
-	QString triggerModeString(TriggerMode mode);
-	QString slopeString(Slope slope);
-	QString windowFunctionString(WindowFunction window);
-	QString interpolationModeString(InterpolationMode interpolation);
+    using namespace DSO;
+    using namespace DSOAnalyser;
+    QString channelModeString(ChannelMode mode);
+    QString graphFormatString(GraphFormat format);
+    QString couplingString(Coupling coupling);
+    QString mathModeString(MathMode mode);
+    QString triggerModeString(TriggerMode mode);
+    QString slopeString(Slope slope);
+    QString windowFunctionString(WindowFunction window);
+    QString interpolationModeString(InterpolationMode interpolation);
 }
+#include <cerrno>
 
+QString libUsbErrorString(int error);
 
 #endif
