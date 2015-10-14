@@ -24,12 +24,13 @@ For rpm based distributions (Fedora) use this command:
 > dnf install cmake qt5-qtbase-gui qt5-qttools-devel qt5-qttranslations fftw-devel libusbx-devel
 
 After you've installed the requirements run the following commands inside the directory of this package:
-> qmake <br>
-> make <br>
-> make install
+> mkdir build <br>
+> cd build <br>
+> cmake ../<br>
+> make
 
-You can specify a prefix when running qmake:
-> qmake PREFIX=/usr
+You can specify a prefix when running cmake:
+> cmake -DCMAKE_INSTALL_PREFIX=/usr
 
 ## Firmware
 Your DSO does not store its firmware permanently and have to be send to the device each time it is connected. Because of copyright reasons we cannot ship the firmware with this software. You have to extract the firmware using openhantek-extractfw and add some rules to udev.
