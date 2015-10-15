@@ -118,6 +118,11 @@ int LevelSlider::removeSlider(int index) {
     return index;
 }
 
+void LevelSlider::clearSliders() {
+    qDeleteAll(this->slider);
+    this->slider.clear();
+}
+
 /// \brief Size hint for the widget.
 /// \return The recommended size for the widget.
 QSize LevelSlider::sizeHint() const {

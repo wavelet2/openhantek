@@ -31,8 +31,9 @@
 
 
 class OpenHantekSettings;
-class DataAnalyzer;
-
+namespace DSOAnalyser {
+    class DataAnalyzer;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// \enum ExportFormat                                                exporter.h
@@ -51,7 +52,7 @@ class Exporter : public QObject {
     Q_OBJECT
 
     public:
-        Exporter(OpenHantekSettings *settings, DataAnalyzer *dataAnalyzer, QWidget *parent = 0);
+        Exporter(OpenHantekSettings *settings, DSOAnalyser::DataAnalyzer *dataAnalyzer, QWidget *parent = 0);
         ~Exporter();
 
         void setFilename(QString filename);
@@ -60,7 +61,7 @@ class Exporter : public QObject {
         bool doExport();
 
     private:
-        DataAnalyzer *dataAnalyzer;
+        DSOAnalyser::DataAnalyzer *dataAnalyzer;
         OpenHantekSettings *settings;
 
         QString filename;

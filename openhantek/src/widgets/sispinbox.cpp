@@ -179,7 +179,8 @@ void SiSpinBox::init() {
     this->steppedTo = false;
     this->stepId = 0;
 
-    connect(this, SIGNAL(valueChanged(double)), this, SLOT(resetSteppedTo()));
+    connect(this, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+            this, &SiSpinBox::resetSteppedTo);
 }
 
 /// \brief Resets the ::steppedTo flag after the value has been changed.

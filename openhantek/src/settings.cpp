@@ -57,7 +57,7 @@ OpenHantekSettings::OpenHantekSettings(QWidget *parent) : QObject(parent) {
 
     // Oscilloscope settings
     // Horizontal axis
-    this->scope.horizontal.format = Dso::GRAPHFORMAT_TY;
+    this->scope.horizontal.format = DSOAnalyser::GRAPHFORMAT_TY;
     this->scope.horizontal.frequencybase = 1e3;
     this->scope.horizontal.marker[0] = -1.0;
     this->scope.horizontal.marker[1] = 1.0;
@@ -67,16 +67,16 @@ OpenHantekSettings::OpenHantekSettings(QWidget *parent) : QObject(parent) {
     this->scope.horizontal.samplerateSet = false;
     // Trigger
     this->scope.trigger.filter = true;
-    this->scope.trigger.mode = Dso::TRIGGERMODE_NORMAL;
+    this->scope.trigger.mode = DSO::TriggerMode::TRIGGERMODE_NORMAL;
     this->scope.trigger.position = 0.0;
-    this->scope.trigger.slope = Dso::SLOPE_POSITIVE;
+    this->scope.trigger.slope = DSO::Slope::SLOPE_POSITIVE;
     this->scope.trigger.source = 0;
     this->scope.trigger.special = false;
     // General
     this->scope.physicalChannels = 0;
     this->scope.spectrumLimit = -20.0;
     this->scope.spectrumReference = 0.0;
-    this->scope.spectrumWindow = Dso::WINDOW_HANN;
+    this->scope.spectrumWindow = DSOAnalyser::WINDOW_HANN;
 
 
     // View
@@ -99,7 +99,7 @@ OpenHantekSettings::OpenHantekSettings(QWidget *parent) : QObject(parent) {
     this->view.antialiasing = true;
     this->view.digitalPhosphor = false;
     this->view.digitalPhosphorDepth = 8;
-    this->view.interpolation = Dso::INTERPOLATION_LINEAR;
+    this->view.interpolation = INTERPOLATION_LINEAR;
     this->view.screenColorImages = false;
     this->view.zoom = false;
 }
@@ -115,71 +115,65 @@ void OpenHantekSettings::setChannelCount(unsigned int channels) {
     // Always put the math channel at the end of the list
 
     // Remove list items for removed channels
-    for(int channel = this->scope.spectrum.count() - 2; channel >= (int) channels; channel--)
-        this->scope.spectrum.removeAt(channel);
-    for(int channel = this->scope.voltage.count() - 2; channel >= (int) channels; channel--)
-        this->scope.voltage.removeAt(channel);
-    for(int channel = this->scope.spectrum.count() - 2; channel >= (int) channels; channel--)
-        this->scope.spectrum.removeAt(channel);
-    for(int channel = this->scope.spectrum.count() - 2; channel >= (int) channels; channel--)
-        this->scope.spectrum.removeAt(channel);
+    this->scope.spectrum.erase(this->scope.spectrum.begin()+channels, this->scope.spectrum.end()-2);
+    this->scope.voltage.erase(this->scope.voltage.begin()+channels, this->scope.voltage.end()-2);
 
     // Add new channels to the list
-    for(int channel = 0; channel < (int) channels; ++channel) {
+    for(unsigned channel = 0; channel < channels; ++channel) {
         // Oscilloscope settings
         // Spectrum
-        if(this->scope.spectrum.count() <= channel + 1) {
-            OpenHantekSettingsScopeSpectrum newSpectrum;
+        if(this->scope.spectrum.size() <= channel + 1) {
+            DSOAnalyser::OpenHantekSettingsScopeSpectrum newSpectrum;
             newSpectrum.magnitude = 20.0;
-            newSpectrum.name = QApplication::tr("SP%1").arg(channel + 1);
+            newSpectrum.name = QApplication::tr("SP%1").arg(channel + 1).toStdString();
             newSpectrum.offset = 0.0;
             newSpectrum.used = false;
-            this->scope.spectrum.insert(channel, newSpectrum);
+            this->scope.spectrum.insert(this->scope.spectrum.begin() + channel, newSpectrum);
         }
         // Voltage
-        if(this->scope.voltage.count() <= channel + 1) {
-            OpenHantekSettingsScopeVoltage newVoltage;
+        if(this->scope.voltage.size() <= channel + 1) {
+            DSOAnalyser::OpenHantekSettingsScopeVoltage newVoltage;
             newVoltage.gain = 1.0;
-            newVoltage.misc = Dso::COUPLING_DC;
-            newVoltage.name = QApplication::tr("CH%1").arg(channel + 1);
+            newVoltage.misc = (int)DSO::Coupling::COUPLING_DC;
+            newVoltage.name = QApplication::tr("CH%1").arg(channel + 1).toStdString();
             newVoltage.offset = 0.0;
             newVoltage.trigger = 0.0;
             newVoltage.used = (channel == 0);
-            this->scope.voltage.insert(channel, newVoltage);
+            this->scope.voltage.insert(this->scope.voltage.begin() + channel, newVoltage);
         }
 
         // View
         // Colors
         // Screen
-        if(this->view.color.screen.voltage.count() <= channel + 1)
+        if((unsigned)this->view.color.screen.voltage.size() <= channel + 1)
             this->view.color.screen.voltage.insert(channel, QColor::fromHsv(channel * 60, 0xff, 0xff));
-        if(this->view.color.screen.spectrum.count() <= channel + 1)
+        if((unsigned)this->view.color.screen.spectrum.size() <= channel + 1)
             this->view.color.screen.spectrum.insert(channel, this->view.color.screen.voltage[channel].lighter());
         // Print
-        if(this->view.color.print.voltage.count() <= channel + 1)
+        if((unsigned)this->view.color.print.voltage.size() <= channel + 1)
             this->view.color.print.voltage.insert(channel, this->view.color.screen.voltage[channel].darker(120));
-        if(this->view.color.print.spectrum.count() <= channel + 1)
+        if((unsigned)this->view.color.print.spectrum.size() <= channel + 1)
             this->view.color.print.spectrum.insert(channel, this->view.color.screen.voltage[channel].darker());
     }
 
     // Check if the math channel is missing
-    if(this->scope.spectrum.count() <= (int) channels) {
-        OpenHantekSettingsScopeSpectrum newSpectrum;
+    if(this->scope.spectrum.size() <= channels) {
+        DSOAnalyser::OpenHantekSettingsScopeSpectrum newSpectrum;
         newSpectrum.magnitude = 20.0;
-        newSpectrum.name = QApplication::tr("SPM");
+        newSpectrum.name = QApplication::tr("SPM").toStdString();
         newSpectrum.offset = 0.0;
         newSpectrum.used = false;
-        this->scope.spectrum.append(newSpectrum);
+        this->scope.spectrum.push_back(newSpectrum);
     }
-    if(this->scope.voltage.count() <= (int) channels) {
-        OpenHantekSettingsScopeVoltage newVoltage;
+    if(this->scope.voltage.size() <= channels) {
+        DSOAnalyser::OpenHantekSettingsScopeVoltage newVoltage;
         newVoltage.gain = 1.0;
-        newVoltage.misc = Dso::MATHMODE_1ADD2;
-        newVoltage.name = QApplication::tr("MATH");
+        newVoltage.misc = DSOAnalyser::MATHMODE_1ADD2;
+        newVoltage.name = QApplication::tr("MATH").toStdString();
         newVoltage.offset = 0.0;
         newVoltage.trigger = 0.0;
         newVoltage.used = false;
-        this->scope.voltage.append(newVoltage);
+        this->scope.voltage.push_back(newVoltage);
     }
     if(this->view.color.screen.voltage.count() <= (int) channels)
         this->view.color.screen.voltage.append(QColor(0x7f, 0x7f, 0x7f, 0xff));
@@ -264,7 +258,7 @@ int OpenHantekSettings::load(const QString &fileName) {
     // Horizontal axis
     settingsLoader->beginGroup("horizontal");
     if(settingsLoader->contains("format"))
-        this->scope.horizontal.format = (Dso::GraphFormat) settingsLoader->value("format").toInt();
+        this->scope.horizontal.format = (DSOAnalyser::GraphFormat) settingsLoader->value("format").toInt();
     if(settingsLoader->contains("frequencybase"))
         this->scope.horizontal.frequencybase = settingsLoader->value("frequencybase").toDouble();
     for(int marker = 0; marker < 2; ++marker) {
@@ -287,18 +281,18 @@ int OpenHantekSettings::load(const QString &fileName) {
     if(settingsLoader->contains("filter"))
         this->scope.trigger.filter = settingsLoader->value("filter").toBool();
     if(settingsLoader->contains("mode"))
-        this->scope.trigger.mode = (Dso::TriggerMode) settingsLoader->value("mode").toInt();
+        this->scope.trigger.mode = (DSO::TriggerMode) settingsLoader->value("mode").toInt();
     if(settingsLoader->contains("position"))
         this->scope.trigger.position = settingsLoader->value("position").toDouble();
     if(settingsLoader->contains("slope"))
-        this->scope.trigger.slope = (Dso::Slope) settingsLoader->value("slope").toInt();
+        this->scope.trigger.slope = (DSO::Slope) settingsLoader->value("slope").toInt();
     if(settingsLoader->contains("source"))
         this->scope.trigger.source = settingsLoader->value("source").toInt();
     if(settingsLoader->contains("special"))
         this->scope.trigger.special = settingsLoader->value("special").toInt();
     settingsLoader->endGroup();
     // Spectrum
-    for(int channel = 0; channel < this->scope.spectrum.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->scope.spectrum.size(); ++channel) {
         settingsLoader->beginGroup(QString("spectrum%1").arg(channel));
         if(settingsLoader->contains("magnitude"))
             this->scope.spectrum[channel].magnitude = settingsLoader->value("magnitude").toDouble();
@@ -309,7 +303,7 @@ int OpenHantekSettings::load(const QString &fileName) {
         settingsLoader->endGroup();
     }
     // Vertical axis
-    for(int channel = 0; channel < this->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->scope.voltage.size(); ++channel) {
         settingsLoader->beginGroup(QString("vertical%1").arg(channel));
         if(settingsLoader->contains("gain"))
             this->scope.voltage[channel].gain = settingsLoader->value("gain").toDouble();
@@ -328,7 +322,7 @@ int OpenHantekSettings::load(const QString &fileName) {
     if(settingsLoader->contains("spectrumReference"))
         this->scope.spectrumReference = settingsLoader->value("spectrumReference").toDouble();
     if(settingsLoader->contains("spectrumWindow"))
-        this->scope.spectrumWindow = (Dso::WindowFunction) settingsLoader->value("spectrumWindow").toInt();
+        this->scope.spectrumWindow = (DSOAnalyser::WindowFunction) settingsLoader->value("spectrumWindow").toInt();
     settingsLoader->endGroup();
 
     // View
@@ -356,14 +350,14 @@ int OpenHantekSettings::load(const QString &fileName) {
             colors->grid = settingsLoader->value("grid").value<QColor>();
         if(settingsLoader->contains("markers"))
             colors->markers = settingsLoader->value("markers").value<QColor>();
-        for(int channel = 0; channel < this->scope.spectrum.count(); ++channel) {
+        for(unsigned channel = 0; channel < this->scope.spectrum.size(); ++channel) {
             QString key = QString("spectrum%1").arg(channel);
             if(settingsLoader->contains(key))
                 colors->spectrum[channel] = settingsLoader->value(key).value<QColor>();
         }
         if(settingsLoader->contains("text"))
             colors->text = settingsLoader->value("text").value<QColor>();
-        for(int channel = 0; channel < this->scope.voltage.count(); ++channel) {
+        for(unsigned channel = 0; channel < this->scope.voltage.size(); ++channel) {
             QString key = QString("voltage%1").arg(channel);
             if(settingsLoader->contains(key))
                 colors->voltage[channel] = settingsLoader->value(key).value<QColor>();
@@ -375,11 +369,11 @@ int OpenHantekSettings::load(const QString &fileName) {
     if(settingsLoader->contains("digitalPhosphor"))
         this->view.digitalPhosphor = settingsLoader->value("digitalPhosphor").toBool();
     if(settingsLoader->contains("interpolation"))
-        this->view.interpolation = (Dso::InterpolationMode) settingsLoader->value("interpolation").toInt();
+        this->view.interpolation = (InterpolationMode) settingsLoader->value("interpolation").toInt();
     if(settingsLoader->contains("screenColorImages"))
-        this->view.screenColorImages = (Dso::InterpolationMode) settingsLoader->value("screenColorImages").toBool();
+        this->view.screenColorImages = (InterpolationMode) settingsLoader->value("screenColorImages").toBool();
     if(settingsLoader->contains("zoom"))
-        this->view.zoom = (Dso::InterpolationMode) settingsLoader->value("zoom").toBool();
+        this->view.zoom = (InterpolationMode) settingsLoader->value("zoom").toBool();
     settingsLoader->endGroup();
 
     delete settingsLoader;
@@ -387,10 +381,14 @@ int OpenHantekSettings::load(const QString &fileName) {
     return 0;
 }
 
+int OpenHantekSettings::save() {
+    return saveAs(QString());
+}
+
 /// \brief Save the settings to the harddisk.
 /// \param fileName Optional filename to read the settings from an ini file.
 /// \return 0 on success, negative on error.
-int OpenHantekSettings::save(const QString &fileName) {
+int OpenHantekSettings::saveAs(const QString &fileName) {
     // Use main configuration and save everything if the fileName wasn't set
     QSettings *settingsSaver;
     bool complete = fileName.isEmpty();
@@ -461,14 +459,14 @@ int OpenHantekSettings::save(const QString &fileName) {
     // Trigger
     settingsSaver->beginGroup("trigger");
     settingsSaver->setValue("filter", this->scope.trigger.filter);
-    settingsSaver->setValue("mode", this->scope.trigger.mode);
+    settingsSaver->setValue("mode", (int)this->scope.trigger.mode);
     settingsSaver->setValue("position", this->scope.trigger.position);
-    settingsSaver->setValue("slope", this->scope.trigger.slope);
+    settingsSaver->setValue("slope", (int)this->scope.trigger.slope);
     settingsSaver->setValue("source", this->scope.trigger.source);
     settingsSaver->setValue("special", this->scope.trigger.special);
     settingsSaver->endGroup();
     // Spectrum
-    for(int channel = 0; channel < this->scope.spectrum.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->scope.spectrum.size(); ++channel) {
         settingsSaver->beginGroup(QString("spectrum%1").arg(channel));
         settingsSaver->setValue("magnitude", this->scope.spectrum[channel].magnitude);
         settingsSaver->setValue("offset", this->scope.spectrum[channel].offset);
@@ -476,7 +474,7 @@ int OpenHantekSettings::save(const QString &fileName) {
         settingsSaver->endGroup();
     }
     // Vertical axis
-    for(int channel = 0; channel < this->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->scope.voltage.size(); ++channel) {
         settingsSaver->beginGroup(QString("vertical%1").arg(channel));
         settingsSaver->setValue("gain", this->scope.voltage[channel].gain);
         settingsSaver->setValue("misc", this->scope.voltage[channel].misc);
@@ -511,10 +509,10 @@ int OpenHantekSettings::save(const QString &fileName) {
             settingsSaver->setValue("border", colors->border);
             settingsSaver->setValue("grid", colors->grid);
             settingsSaver->setValue("markers", colors->markers);
-            for(int channel = 0; channel < this->scope.spectrum.count(); ++channel)
+            for(unsigned channel = 0; channel < this->scope.spectrum.size(); ++channel)
                 settingsSaver->setValue(QString("spectrum%1").arg(channel), colors->spectrum[channel]);
             settingsSaver->setValue("text", colors->text);
-            for(int channel = 0; channel < this->scope.voltage.count(); ++channel)
+            for(unsigned channel = 0; channel < this->scope.voltage.size(); ++channel)
                 settingsSaver->setValue(QString("voltage%1").arg(channel), colors->voltage[channel]);
             settingsSaver->endGroup();
         }

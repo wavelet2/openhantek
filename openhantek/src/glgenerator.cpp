@@ -28,7 +28,7 @@
 
 #include "glgenerator.h"
 
-#include "dataanalyzer.h"
+#include "dataAnalyzer.h"
 #include "settings.h"
 
 
@@ -37,46 +37,24 @@
 /// \brief Initializes the scope widget.
 /// \param settings The target settings object.
 /// \param parent The parent widget.
-GlGenerator::GlGenerator(OpenHantekSettings *settings, QObject *parent) : QObject(parent) {
-    this->settings = settings;
-
-    this->dataAnalyzer = 0;
-    this->digitalPhosphorDepth = 0;
-
+GlGenerator::GlGenerator(QObject *parent) : QObject(parent) {
     this->generateGrid();
 }
 
-/// \brief Deletes OpenGL objects.
-GlGenerator::~GlGenerator() {
-    /// \todo Clean up vaChannel
-}
-
-/// \brief Set the data analyzer whose data will be drawn.
-/// \param dataAnalyzer Pointer to the DataAnalyzer class.
-void GlGenerator::setDataAnalyzer(DataAnalyzer *dataAnalyzer) {
-    if(this->dataAnalyzer)
-        disconnect(this->dataAnalyzer, SIGNAL(finished()), this, SLOT(generateGraphs()));
-    this->dataAnalyzer = dataAnalyzer;
-    connect(this->dataAnalyzer, SIGNAL(finished()), this, SLOT(generateGraphs()));
-}
-
 /// \brief Prepare arrays for drawing the data we get from the data analyzer.
-void GlGenerator::generateGraphs() {
-    if(!this->dataAnalyzer)
-        return;
-
+void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<DSOAnalyser::DataAnalyzer>& dataAnalyzer) {
     // Adapt the number of graphs
-    for(int mode = Dso::CHANNELMODE_VOLTAGE; mode < Dso::CHANNELMODE_COUNT; ++mode)
-        this->vaChannel[mode].resize(this->settings->scope.voltage.count());
+    for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode)
+        this->vaChannel[mode].resize(settings->scope.voltage.size());
 
     // Set digital phosphor depth to one if we don't use it
-    if(this->settings->view.digitalPhosphor)
-        this->digitalPhosphorDepth = this->settings->view.digitalPhosphorDepth;
+    if(settings->view.digitalPhosphor)
+        this->digitalPhosphorDepth = settings->view.digitalPhosphorDepth;
     else
         this->digitalPhosphorDepth = 1;
 
     // Handle all digital phosphor related list manipulations
-    for(int mode = Dso::CHANNELMODE_VOLTAGE; mode < Dso::CHANNELMODE_COUNT; ++mode) {
+    for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
         for(unsigned int channel = 0; channel < this->vaChannel[mode].size(); ++channel) {
             // Move the last list element to the front
             this->vaChannel[mode][channel].push_front(std::vector<GLfloat>());
@@ -86,17 +64,17 @@ void GlGenerator::generateGraphs() {
         }
     }
 
-    this->dataAnalyzer->mutex()->lock();
+    dataAnalyzer->mutex().lock();
 
-    switch(this->settings->scope.horizontal.format) {
-        case Dso::GRAPHFORMAT_TY:
+    switch(settings->scope.horizontal.format) {
+        case DSOAnalyser::GRAPHFORMAT_TY:
             // Add graphs for channels
-            for(int mode = Dso::CHANNELMODE_VOLTAGE; mode < Dso::CHANNELMODE_COUNT; ++mode) {
-                for(int channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+            for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
+                for(unsigned channel = 0; channel < settings->scope.voltage.size(); ++channel) {
                     // Check if this channel is used and available at the data analyzer
-                    if(((mode == Dso::CHANNELMODE_VOLTAGE) ? this->settings->scope.voltage[channel].used : this->settings->scope.spectrum[channel].used) && this->dataAnalyzer->data(channel) && !this->dataAnalyzer->data(channel)->samples.voltage.sample.empty()) {
+                    if(((mode == CHANNELMODE_VOLTAGE) ? settings->scope.voltage[channel].used : settings->scope.spectrum[channel].used) && dataAnalyzer->data(channel) && !dataAnalyzer->data(channel)->samples.voltage.sample.empty()) {
                         // Check if the sample count has changed
-                        unsigned int sampleCount = (mode == Dso::CHANNELMODE_VOLTAGE) ? this->dataAnalyzer->data(channel)->samples.voltage.sample.size() : this->dataAnalyzer->data(channel)->samples.spectrum.sample.size();
+                        unsigned int sampleCount = (mode == CHANNELMODE_VOLTAGE) ? dataAnalyzer->data(channel)->samples.voltage.sample.size() : dataAnalyzer->data(channel)->samples.spectrum.sample.size();
                         unsigned int neededSize = sampleCount * 2;
                         for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index) {
                             if(this->vaChannel[mode][channel][index].size() != neededSize)
@@ -111,16 +89,16 @@ void GlGenerator::generateGraphs() {
 
                         // What's the horizontal distance between sampling points?
                         double horizontalFactor;
-                        if(mode == Dso::CHANNELMODE_VOLTAGE)
-                            horizontalFactor = this->dataAnalyzer->data(channel)->samples.voltage.interval / this->settings->scope.horizontal.timebase;
+                        if(mode == CHANNELMODE_VOLTAGE)
+                            horizontalFactor = dataAnalyzer->data(channel)->samples.voltage.interval / settings->scope.horizontal.timebase;
                         else
-                            horizontalFactor = this->dataAnalyzer->data(channel)->samples.spectrum.interval / this->settings->scope.horizontal.frequencybase;
+                            horizontalFactor = dataAnalyzer->data(channel)->samples.spectrum.interval / settings->scope.horizontal.frequencybase;
 
                         // Fill vector array
-                        if(mode == Dso::CHANNELMODE_VOLTAGE) {
-                            std::vector<double>::const_iterator dataIterator = this->dataAnalyzer->data(channel)->samples.voltage.sample.begin();
-                            const double gain = this->settings->scope.voltage[channel].gain;
-                            const double offset = this->settings->scope.voltage[channel].offset;
+                        if(mode == CHANNELMODE_VOLTAGE) {
+                            std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.voltage.sample.begin();
+                            const double gain = settings->scope.voltage[channel].gain;
+                            const double offset = settings->scope.voltage[channel].offset;
 
                             for(unsigned int position = 0; position < sampleCount; ++position) {
                                 *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2;
@@ -128,9 +106,9 @@ void GlGenerator::generateGraphs() {
                             }
                         }
                         else {
-                            std::vector<double>::const_iterator dataIterator = this->dataAnalyzer->data(channel)->samples.spectrum.sample.begin();
-                            const double magnitude = this->settings->scope.spectrum[channel].magnitude;
-                            const double offset = this->settings->scope.spectrum[channel].offset;
+                            std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.spectrum.sample.begin();
+                            const double magnitude = settings->scope.spectrum[channel].magnitude;
+                            const double offset = settings->scope.spectrum[channel].offset;
 
                             for(unsigned int position = 0; position < sampleCount; ++position) {
                                 *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2;
@@ -147,33 +125,33 @@ void GlGenerator::generateGraphs() {
             }
             break;
 
-        case Dso::GRAPHFORMAT_XY:
-            for(int channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+        case DSOAnalyser::GRAPHFORMAT_XY:
+            for(unsigned channel = 0; channel < settings->scope.voltage.size(); ++channel) {
                 // For even channel numbers check if this channel is used and this and the following channel are available at the data analyzer
-                if(channel % 2 == 0 && channel + 1 < this->settings->scope.voltage.size() && this->settings->scope.voltage[channel].used && this->dataAnalyzer->data(channel) && !this->dataAnalyzer->data(channel)->samples.voltage.sample.empty() && this->dataAnalyzer->data(channel + 1) && !this->dataAnalyzer->data(channel + 1)->samples.voltage.sample.empty()) {
+                if(channel % 2 == 0 && channel + 1 < settings->scope.voltage.size() && settings->scope.voltage[channel].used && dataAnalyzer->data(channel) && !dataAnalyzer->data(channel)->samples.voltage.sample.empty() && dataAnalyzer->data(channel + 1) && !dataAnalyzer->data(channel + 1)->samples.voltage.sample.empty()) {
                     // Check if the sample count has changed
-                    const unsigned int sampleCount = qMin(this->dataAnalyzer->data(channel)->samples.voltage.sample.size(), this->dataAnalyzer->data(channel + 1)->samples.voltage.sample.size());
+                    const unsigned int sampleCount = qMin(dataAnalyzer->data(channel)->samples.voltage.sample.size(), dataAnalyzer->data(channel + 1)->samples.voltage.sample.size());
                     const unsigned int neededSize = sampleCount * 2;
                     for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index) {
-                        if(this->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].size() != neededSize)
-                            this->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].clear(); // Something was changed, drop old traces
+                        if(this->vaChannel[CHANNELMODE_VOLTAGE][channel][index].size() != neededSize)
+                            this->vaChannel[CHANNELMODE_VOLTAGE][channel][index].clear(); // Something was changed, drop old traces
                     }
 
                     // Set size directly to avoid reallocations
-                    this->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel].front().resize(neededSize);
+                    this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().resize(neededSize);
 
                     // Iterator to data for direct access
-                    std::vector<GLfloat>::iterator glIterator = this->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel].front().begin();
+                    std::vector<GLfloat>::iterator glIterator = this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().begin();
 
                     // Fill vector array
                     unsigned int xChannel = channel;
                     unsigned int yChannel = channel + 1;
-                    std::vector<double>::const_iterator xIterator = this->dataAnalyzer->data(xChannel)->samples.voltage.sample.begin();
-                    std::vector<double>::const_iterator yIterator = this->dataAnalyzer->data(yChannel)->samples.voltage.sample.begin();
-                    const double xGain = this->settings->scope.voltage[xChannel].gain;
-                    const double yGain = this->settings->scope.voltage[yChannel].gain;
-                    const double xOffset = this->settings->scope.voltage[xChannel].offset;
-                    const double yOffset = this->settings->scope.voltage[yChannel].offset;
+                    std::vector<double>::const_iterator xIterator = dataAnalyzer->data(xChannel)->samples.voltage.sample.begin();
+                    std::vector<double>::const_iterator yIterator = dataAnalyzer->data(yChannel)->samples.voltage.sample.begin();
+                    const double xGain = settings->scope.voltage[xChannel].gain;
+                    const double yGain = settings->scope.voltage[yChannel].gain;
+                    const double xOffset = settings->scope.voltage[xChannel].offset;
+                    const double yOffset = settings->scope.voltage[yChannel].offset;
 
                     for(unsigned int position = 0; position < sampleCount; ++position) {
                         *(glIterator++) = *(xIterator++) / xGain + xOffset;
@@ -183,12 +161,12 @@ void GlGenerator::generateGraphs() {
                 else {
                     // Delete all vector arrays
                     for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index)
-                        this->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].clear();
+                        this->vaChannel[CHANNELMODE_VOLTAGE][channel][index].clear();
                 }
 
                 // Delete all spectrum graphs
                 for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index)
-                    this->vaChannel[Dso::CHANNELMODE_SPECTRUM][channel][index].clear();
+                    this->vaChannel[CHANNELMODE_SPECTRUM][channel][index].clear();
             }
             break;
 
@@ -196,7 +174,7 @@ void GlGenerator::generateGraphs() {
             break;
     }
 
-    this->dataAnalyzer->mutex()->unlock();
+    dataAnalyzer->mutex().unlock();
 
     emit graphsGenerated();
 }

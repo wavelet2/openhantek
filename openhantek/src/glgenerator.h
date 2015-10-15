@@ -29,16 +29,20 @@
 
 
 #include <deque>
+#include <memory>
 
 #include <QGLWidget>
 #include <QObject>
+
+#include "parameters.h"
 
 #define DIVS_TIME                  10.0 ///< Number of horizontal screen divs
 #define DIVS_VOLTAGE                8.0 ///< Number of vertical screen divs
 #define DIVS_SUB                      5 ///< Number of sub-divisions per div
 
-
-class DataAnalyzer;
+namespace DSOAnalyser {
+    class DataAnalyzer;
+}
 class OpenHantekSettings;
 class GlScope;
 
@@ -52,25 +56,16 @@ class GlGenerator : public QObject {
     friend class GlScope;
 
     public:
-        GlGenerator(OpenHantekSettings *settings, QObject *parent = 0);
-        ~GlGenerator();
-
-        void setDataAnalyzer(DataAnalyzer *dataAnalyzer);
+        GlGenerator(QObject *parent = 0);
+        void generateGraphs(OpenHantekSettings *settings, std::shared_ptr<DSOAnalyser::DataAnalyzer>& dataAnalyzer);
 
     protected:
         void generateGrid();
 
     private:
-        DataAnalyzer *dataAnalyzer;
-        OpenHantekSettings *settings;
-
         std::vector<std::deque<std::vector<GLfloat> > > vaChannel[CHANNELMODE_COUNT];
         std::vector<GLfloat> vaGrid[3];
-
-        unsigned int digitalPhosphorDepth;
-
-    public slots:
-        void generateGraphs();
+        unsigned int digitalPhosphorDepth = 0;
 
     signals:
         void graphsGenerated(); ///< The graphs are ready to be drawn

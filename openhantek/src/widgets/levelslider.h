@@ -68,6 +68,7 @@ class LevelSlider : public QWidget {
         int addSlider(int index = -1);
         int addSlider(QString text, int index = -1);
         int removeSlider(int index = -1);
+        void clearSliders();
 
         // Parameters for a specific slider
         const QColor color(int index) const;

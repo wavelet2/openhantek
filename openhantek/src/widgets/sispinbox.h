@@ -66,8 +66,6 @@ class SiSpinBox : public QDoubleSpinBox
         bool steppedTo; ///< true, if the current value was reached using stepBy
         int stepId; ///< The index of the last step reached using stepBy
 
-    signals:
-
     private slots:
         void resetSteppedTo();
 };

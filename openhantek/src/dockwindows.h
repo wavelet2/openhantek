@@ -49,7 +49,6 @@ class HorizontalDock : public QDockWidget {
 
     public:
         HorizontalDock(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
-        ~HorizontalDock();
 
         void setFrequencybase(double timebase);
         void setSamplerate(double samplerate);
@@ -80,7 +79,7 @@ class HorizontalDock : public QDockWidget {
         bool suppressSignals; ///< Disable changed-signals temporarily
 
     public slots:
-        void availableRecordLengthsChanged(const QList<unsigned int> &recordLengths);
+        void availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths);
         void samplerateLimitsChanged(double minimum, double maximum);
 
     protected slots:
@@ -110,7 +109,7 @@ class TriggerDock : public QDockWidget {
         TriggerDock(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
         ~TriggerDock();
 
-        void setChannels(const std::vector<QString> *specialTriggers);
+        void setChannels(const std::vector<std::string>& specialTriggers);
         int setMode(DSO::TriggerMode mode);
         int setSource(bool special, unsigned int id);
         int setSlope(DSO::Slope slope);
@@ -158,10 +157,10 @@ class VoltageDock : public QDockWidget {
         VoltageDock(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
         ~VoltageDock();
 
-        int setCoupling(int channel, DSO::Coupling coupling);
-        int setGain(int channel, double gain);
+        int setCoupling(unsigned channel, DSO::Coupling coupling);
+        int setGain(unsigned channel, double gain);
         int setMode(DSOAnalyser::MathMode mode);
-        int setUsed(int channel, bool used);
+        int setUsed(unsigned channel, bool used);
 
     protected:
         void closeEvent(QCloseEvent *event);
@@ -185,10 +184,10 @@ class VoltageDock : public QDockWidget {
         void usedSwitched(bool checked);
 
     signals:
-        void couplingChanged(unsigned int channel, DSO::Coupling coupling); ///< A coupling has been selected
-        void gainChanged(unsigned int channel, double gain); ///< A gain has been selected
+        void couplingChanged(unsigned channel, DSO::Coupling coupling); ///< A coupling has been selected
+        void gainChanged(unsigned channel, double gain); ///< A gain has been selected
         void modeChanged(DSOAnalyser::MathMode mode); ///< The mode for the math channels has been changed
-        void usedChanged(unsigned int channel, bool used); ///< A channel has been enabled/disabled
+        void usedChanged(unsigned channel, bool used); ///< A channel has been enabled/disabled
 };
 
 
@@ -204,8 +203,8 @@ class SpectrumDock : public QDockWidget {
         SpectrumDock(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
         ~SpectrumDock();
 
-        int setMagnitude(int channel, double magnitude);
-        int setUsed(int channel, bool used);
+        int setMagnitude(unsigned channel, double magnitude);
+        int setUsed(unsigned channel, bool used);
 
     protected:
         void closeEvent(QCloseEvent *event);
@@ -225,8 +224,8 @@ class SpectrumDock : public QDockWidget {
         void usedSwitched(bool checked);
 
     signals:
-        void magnitudeChanged(unsigned int channel, double magnitude); ///< A magnitude has been selected
-        void usedChanged(unsigned int channel, bool used); ///< A spectrum has been enabled/disabled
+        void magnitudeChanged(unsigned channel, double magnitude); ///< A magnitude has been selected
+        void usedChanged(unsigned channel, bool used); ///< A spectrum has been enabled/disabled
 };
 
 

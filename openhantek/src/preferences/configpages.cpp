@@ -269,7 +269,8 @@ DsoConfigFilesPage::DsoConfigFilesPage(OpenHantekSettings *settings, QWidget *pa
 
     this->setLayout(this->mainLayout);
 
-    connect(this->saveNowButton, SIGNAL(clicked()), this->settings, SLOT(save()));
+    connect(this->saveNowButton, &QPushButton::clicked,
+            this->settings, &OpenHantekSettings::save);
 }
 
 /// \brief Cleans up the widget.

@@ -72,8 +72,8 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
 
     this->formatLabel = new QLabel(tr("Format"));
     this->formatComboBox = new QComboBox();
-    for(int format = Dso::GRAPHFORMAT_TY; format < Dso::GRAPHFORMAT_COUNT; ++format)
-        this->formatComboBox->addItem(DsoStrings::graphFormatString((Dso::GraphFormat) format));
+    for(int format = (int)DSOAnalyser::GRAPHFORMAT_TY; format < (int)DSOAnalyser::GRAPHFORMAT_COUNT; ++format)
+        this->formatComboBox->addItem(DsoStrings::graphFormatString((DSOAnalyser::GraphFormat) format));
 
     this->dockLayout = new QGridLayout();
     this->dockLayout->setColumnMinimumWidth(0, 64);
@@ -96,11 +96,16 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
     this->setWidget(this->dockWidget);
 
     // Connect signals and slots
-    connect(this->samplerateSiSpinBox, SIGNAL(valueChanged(double)), this, SLOT(samplerateSelected(double)));
-    connect(this->timebaseSiSpinBox, SIGNAL(valueChanged(double)), this, SLOT(timebaseSelected(double)));
-    connect(this->frequencybaseSiSpinBox, SIGNAL(valueChanged(double)), this, SLOT(frequencybaseSelected(double)));
-    connect(this->recordLengthComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(recordLengthSelected(int)));
-    connect(this->formatComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(formatSelected(int)));
+    connect(this->samplerateSiSpinBox, static_cast<void (SiSpinBox::*)(double)>(&SiSpinBox::valueChanged),
+            this, &HorizontalDock::samplerateSelected);
+    connect(this->timebaseSiSpinBox, static_cast<void (SiSpinBox::*)(double)>(&SiSpinBox::valueChanged),
+            this, &HorizontalDock::timebaseSelected);
+    connect(this->frequencybaseSiSpinBox, static_cast<void (SiSpinBox::*)(double)>(&SiSpinBox::valueChanged),
+            this, &HorizontalDock::frequencybaseSelected);
+    connect(this->recordLengthComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &HorizontalDock::recordLengthSelected);
+    connect(this->formatComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &HorizontalDock::formatSelected);
 
     // Set values
     this->setSamplerate(this->settings->scope.horizontal.samplerate);
@@ -108,10 +113,6 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
     this->setFrequencybase(this->settings->scope.horizontal.frequencybase);
     this->setRecordLength(this->settings->scope.horizontal.recordLength);
     this->setFormat(this->settings->scope.horizontal.format);
-}
-
-/// \brief Cleans up everything.
-HorizontalDock::~HorizontalDock() {
 }
 
 /// \brief Don't close the dock, just hide it.
@@ -161,8 +162,8 @@ void HorizontalDock::setRecordLength(unsigned int recordLength) {
 /// \brief Changes the format if the new value is supported.
 /// \param format The format for the horizontal axis.
 /// \return Index of format-value, -1 on error.
-int HorizontalDock::setFormat(Dso::GraphFormat format) {
-    if(format >= Dso::GRAPHFORMAT_TY && format <= Dso::GRAPHFORMAT_XY) {
+int HorizontalDock::setFormat(DSOAnalyser::GraphFormat format) {
+    if(format >= DSOAnalyser::GRAPHFORMAT_TY && format <= DSOAnalyser::GRAPHFORMAT_XY) {
         this->suppressSignals = true;
         this->formatComboBox->setCurrentIndex(format);
         this->suppressSignals = false;
@@ -174,16 +175,16 @@ int HorizontalDock::setFormat(Dso::GraphFormat format) {
 
 /// \brief Updates the available record lengths in the combo box.
 /// \param recordLengths The available record lengths for the combo box.
-void HorizontalDock::availableRecordLengthsChanged(const QList<unsigned int> &recordLengths) {
+void HorizontalDock::availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths) {
     /// \todo Empty lists should be interpreted as scope supporting continuous record length values.
     this->recordLengthComboBox->blockSignals(true); // Avoid messing up the settings
     this->recordLengthComboBox->setUpdatesEnabled(false);
 
     // Update existing elements to avoid unnecessary index updates
-    int index = 0;
+    unsigned index = 0;
     for(; index < recordLengths.size(); ++index) {
         unsigned int recordLengthItem = recordLengths[index];
-        if(index < this->recordLengthComboBox->count()) {
+        if(index < (unsigned)this->recordLengthComboBox->count()) {
             this->recordLengthComboBox->setItemData(index, recordLengthItem);
             this->recordLengthComboBox->setItemText(index, recordLengthItem == UINT_MAX ? tr("Roll") : Helper::valueToString(recordLengthItem, Helper::UNIT_SAMPLES, 3));
         }
@@ -192,7 +193,7 @@ void HorizontalDock::availableRecordLengthsChanged(const QList<unsigned int> &re
         }
     }
     // Remove extra elements
-    for(int extraIndex = this->recordLengthComboBox->count() - 1; extraIndex > index; --extraIndex) {
+    for(int extraIndex = this->recordLengthComboBox->count() - 1; extraIndex > (int)index; --extraIndex) {
         this->recordLengthComboBox->removeItem(extraIndex);
     }
 
@@ -250,7 +251,7 @@ void HorizontalDock::recordLengthSelected(int index) {
 /// \brief Called when the format combo box changes its value.
 /// \param index The index of the combo box item.
 void HorizontalDock::formatSelected(int index) {
-    this->settings->scope.horizontal.format = (Dso::GraphFormat) index;
+    this->settings->scope.horizontal.format = (DSOAnalyser::GraphFormat) index;
     if(!this->suppressSignals)
         emit formatChanged(this->settings->scope.horizontal.format);
 }
@@ -294,9 +295,12 @@ TriggerDock::TriggerDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     this->setWidget(this->dockWidget);
 
     // Connect signals and slots
-    connect(this->modeComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(modeSelected(int)));
-    connect(this->slopeComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(slopeSelected(int)));
-    connect(this->sourceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(sourceSelected(int)));
+    connect(this->modeComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &TriggerDock::modeSelected);
+    connect(this->slopeComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &TriggerDock::slopeSelected);
+    connect(this->sourceComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &TriggerDock::sourceSelected);
 
     // Set values
     this->setMode(this->settings->scope.trigger.mode);
@@ -319,19 +323,20 @@ void TriggerDock::closeEvent(QCloseEvent *event) {
 /// \brief Changes the trigger mode if the new mode is supported.
 /// \param mode The trigger mode.
 /// \return Index of mode-value, -1 on error.
-void TriggerDock::setChannels(const std::vector<QString> *specialTriggers) {
+void TriggerDock::setChannels(const std::vector<std::string> &specialTriggers) {
     // Initialize lists for comboboxes
-    for(unsigned int channel = 0; channel < this->settings->scope.physicalChannels; ++channel)
+    for(unsigned channel = 0; channel < this->settings->scope.physicalChannels; ++channel)
         this->sourceStandardStrings << tr("CH%1").arg(channel + 1);
-    this->sourceSpecialStrings << *specialTriggers;
+    for(const std::string& s: specialTriggers)
+        this->sourceSpecialStrings << QString::fromStdString(s);
 
     this->modeComboBox->clear();
-    for(int mode = Dso::TRIGGERMODE_AUTO; mode < Dso::TRIGGERMODE_COUNT; ++mode)
-        this->modeComboBox->addItem(DsoStrings::triggerModeString((Dso::TriggerMode) mode));
+    for(int mode = (int)DSO::TriggerMode::TRIGGERMODE_AUTO; mode < (int)DSO::TriggerMode::TRIGGERMODE_COUNT; ++mode)
+        this->modeComboBox->addItem(DsoStrings::triggerModeString((DSO::TriggerMode) mode));
 
     this->slopeComboBox->clear();
-    for(int slope = Dso::SLOPE_POSITIVE; slope < Dso::SLOPE_COUNT; ++slope)
-        this->slopeComboBox->addItem(DsoStrings::slopeString((Dso::Slope) slope));
+    for(int slope = (int)DSO::Slope::SLOPE_POSITIVE; slope < (int)DSO::Slope::SLOPE_COUNT; ++slope)
+        this->slopeComboBox->addItem(DsoStrings::slopeString((DSO::Slope) slope));
 
     this->sourceComboBox->clear();
     this->sourceComboBox->addItems(this->sourceStandardStrings);
@@ -341,10 +346,10 @@ void TriggerDock::setChannels(const std::vector<QString> *specialTriggers) {
 /// \brief Changes the trigger mode if the new mode is supported.
 /// \param mode The trigger mode.
 /// \return Index of mode-value, -1 on error.
-int TriggerDock::setMode(Dso::TriggerMode mode) {
-    if(mode >= Dso::TRIGGERMODE_AUTO && mode <=Dso:: TRIGGERMODE_SINGLE) {
-        this->modeComboBox->setCurrentIndex(mode);
-        return mode;
+int TriggerDock::setMode(DSO::TriggerMode mode) {
+    if(mode >= DSO::TriggerMode::TRIGGERMODE_AUTO && mode <=DSO::TriggerMode::TRIGGERMODE_SINGLE) {
+        this->modeComboBox->setCurrentIndex((int)mode);
+        return (int)mode;
     }
 
     return -1;
@@ -353,10 +358,10 @@ int TriggerDock::setMode(Dso::TriggerMode mode) {
 /// \brief Changes the trigger slope if the new slope is supported.
 /// \param slope The trigger slope.
 /// \return Index of slope-value, -1 on error.
-int TriggerDock::setSlope(Dso::Slope slope) {
-    if(slope >= Dso::SLOPE_POSITIVE && slope <= Dso::SLOPE_NEGATIVE) {
-        this->slopeComboBox->setCurrentIndex(slope);
-        return slope;
+int TriggerDock::setSlope(DSO::Slope slope) {
+    if(slope >= DSO::Slope::SLOPE_POSITIVE && slope <= DSO::Slope::SLOPE_NEGATIVE) {
+        this->slopeComboBox->setCurrentIndex((int)slope);
+        return (int)slope;
     }
 
     return -1;
@@ -381,14 +386,14 @@ int TriggerDock::setSource(bool special, unsigned int id) {
 /// \brief Called when the mode combo box changes it's value.
 /// \param index The index of the combo box item.
 void TriggerDock::modeSelected(int index) {
-    this->settings->scope.trigger.mode = (Dso::TriggerMode) index;
+    this->settings->scope.trigger.mode = (DSO::TriggerMode) index;
     emit modeChanged(this->settings->scope.trigger.mode);
 }
 
 /// \brief Called when the slope combo box changes it's value.
 /// \param index The index of the combo box item.
 void TriggerDock::slopeSelected(int index) {
-    this->settings->scope.trigger.slope = (Dso::Slope) index;
+    this->settings->scope.trigger.slope = (DSO::Slope) index;
     emit slopeChanged(this->settings->scope.trigger.slope);
 }
 
@@ -425,17 +430,17 @@ SpectrumDock::SpectrumDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wi
         this->magnitudeStrings << Helper::valueToString(*magnitude, Helper::UNIT_DECIBEL, 0);
 
     // Initialize elements
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->magnitudeComboBox.append(new QComboBox());
         this->magnitudeComboBox[channel]->addItems(this->magnitudeStrings);
 
-        this->usedCheckBox.append(new QCheckBox(this->settings->scope.voltage[channel].name));
+        this->usedCheckBox.append(new QCheckBox(QString::fromStdString(this->settings->scope.voltage[channel].name)));
     }
 
     this->dockLayout = new QGridLayout();
     this->dockLayout->setColumnMinimumWidth(0, 64);
     this->dockLayout->setColumnStretch(1, 1);
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->dockLayout->addWidget(this->usedCheckBox[channel], channel, 0);
         this->dockLayout->addWidget(this->magnitudeComboBox[channel], channel, 1);
     }
@@ -447,13 +452,15 @@ SpectrumDock::SpectrumDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wi
     this->setWidget(this->dockWidget);
 
     // Connect signals and slots
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
-        connect(this->magnitudeComboBox[channel], SIGNAL(currentIndexChanged(int)), this, SLOT(magnitudeSelected(int)));
-        connect(this->usedCheckBox[channel], SIGNAL(toggled(bool)), this, SLOT(usedSwitched(bool)));
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+        connect(this->magnitudeComboBox[channel], static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+                this, &SpectrumDock::magnitudeSelected);
+        connect(this->usedCheckBox[channel], &QCheckBox::toggled,
+                this, &SpectrumDock::usedSwitched);
     }
 
     // Set values
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->setMagnitude(channel, this->settings->scope.spectrum[channel].magnitude);
         this->setUsed(channel, this->settings->scope.spectrum[channel].used);
     }
@@ -475,8 +482,8 @@ void SpectrumDock::closeEvent(QCloseEvent *event) {
 /// \param channel The channel, whose magnitude should be set.
 /// \param magnitude The magnitude in dB.
 /// \return Index of magnitude-value, -1 on error.
-int SpectrumDock::setMagnitude(int channel, double magnitude) {
-    if(channel < 0 || channel >= this->settings->scope.voltage.count())
+int SpectrumDock::setMagnitude(unsigned channel, double magnitude) {
+    if(channel < 0 || channel >= this->settings->scope.voltage.size())
         return -1;
 
     int index = this->magnitudeSteps.indexOf(magnitude);
@@ -490,8 +497,8 @@ int SpectrumDock::setMagnitude(int channel, double magnitude) {
 /// \param channel The channel, that should be enabled/disabled.
 /// \param used True if the channel should be enabled, false otherwise.
 /// \return Index of channel, -1 on error.
-int SpectrumDock::setUsed(int channel, bool used) {
-    if(channel >= 0 && channel < this->settings->scope.voltage.count()) {
+int SpectrumDock::setUsed(unsigned channel, bool used) {
+    if(channel >= 0 && channel < this->settings->scope.voltage.size()) {
         this->usedCheckBox[channel]->setChecked(used);
         return channel;
     }
@@ -502,15 +509,15 @@ int SpectrumDock::setUsed(int channel, bool used) {
 /// \brief Called when the source combo box changes it's value.
 /// \param index The index of the combo box item.
 void SpectrumDock::magnitudeSelected(int index) {
-    int channel;
+    unsigned channel;
 
     // Which combobox was it?
-    for(channel = 0; channel < this->settings->scope.voltage.count(); ++channel)
+    for(channel = 0; channel < this->settings->scope.voltage.size(); ++channel)
         if(this->sender() == this->magnitudeComboBox[channel])
             break;
 
     // Send signal if it was one of the comboboxes
-    if(channel < this->settings->scope.voltage.count()) {
+    if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.spectrum[channel].magnitude = this->magnitudeSteps.at(index);
         emit magnitudeChanged(channel, this->settings->scope.spectrum[channel].magnitude);
     }
@@ -519,15 +526,15 @@ void SpectrumDock::magnitudeSelected(int index) {
 /// \brief Called when the used checkbox is switched.
 /// \param checked The check-state of the checkbox.
 void SpectrumDock::usedSwitched(bool checked) {
-    int channel;
+    unsigned channel;
 
     // Which checkbox was it?
-    for(channel = 0; channel < this->settings->scope.voltage.count(); ++channel)
+    for(channel = 0; channel < this->settings->scope.voltage.size(); ++channel)
         if(this->sender() == this->usedCheckBox[channel])
             break;
 
     // Send signal if it was one of the checkboxes
-    if(channel < this->settings->scope.voltage.count()) {
+    if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.spectrum[channel].used = checked;
         emit usedChanged(channel, checked);
     }
@@ -544,11 +551,11 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     this->settings = settings;
 
     // Initialize lists for comboboxes
-    for(int coupling = Dso::COUPLING_AC; coupling < Dso::COUPLING_COUNT; ++coupling)
-        this->couplingStrings.append(DsoStrings::couplingString((Dso::Coupling) coupling));
+    for(int coupling = (int)DSO::Coupling::COUPLING_AC; coupling < (int)DSO::Coupling::COUPLING_COUNT; ++coupling)
+        this->couplingStrings.append(DsoStrings::couplingString((DSO::Coupling) coupling));
 
-    for(int mode = Dso::MATHMODE_1ADD2; mode < Dso::MATHMODE_COUNT; ++mode)
-        this->modeStrings.append(DsoStrings::mathModeString((Dso::MathMode) mode));
+    for(int mode = DSOAnalyser::MATHMODE_1ADD2; mode < DSOAnalyser::MATHMODE_COUNT; ++mode)
+        this->modeStrings.append(DsoStrings::mathModeString((DSOAnalyser::MathMode) mode));
 
     this->gainSteps             << 1e-2 << 2e-2 << 5e-2 << 1e-1 << 2e-1 << 5e-1
             <<  1e0 <<  2e0 <<  5e0;          ///< Voltage steps in V/div
@@ -556,9 +563,9 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
         this->gainStrings << Helper::valueToString(*gain, Helper::UNIT_VOLTS, 0);
 
     // Initialize elements
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->miscComboBox.append(new QComboBox());
-        if(channel < (int) this->settings->scope.physicalChannels)
+        if(channel < this->settings->scope.physicalChannels)
             this->miscComboBox[channel]->addItems(this->couplingStrings);
         else
             this->miscComboBox[channel]->addItems(this->modeStrings);
@@ -566,13 +573,13 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
         this->gainComboBox.append(new QComboBox());
         this->gainComboBox[channel]->addItems(this->gainStrings);
 
-        this->usedCheckBox.append(new QCheckBox(this->settings->scope.voltage[channel].name));
+        this->usedCheckBox.append(new QCheckBox(QString::fromStdString(this->settings->scope.voltage[channel].name)));
     }
 
     this->dockLayout = new QGridLayout();
     this->dockLayout->setColumnMinimumWidth(0, 64);
     this->dockLayout->setColumnStretch(1, 1);
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->dockLayout->addWidget(this->usedCheckBox[channel], channel * 2, 0);
         this->dockLayout->addWidget(this->gainComboBox[channel], channel * 2, 1);
         this->dockLayout->addWidget(this->miscComboBox[channel], channel * 2 + 1, 1);
@@ -585,18 +592,21 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     this->setWidget(this->dockWidget);
 
     // Connect signals and slots
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
-        connect(this->gainComboBox[channel], SIGNAL(currentIndexChanged(int)), this, SLOT(gainSelected(int)));
-        connect(this->miscComboBox[channel], SIGNAL(currentIndexChanged(int)), this, SLOT(miscSelected(int)));
-        connect(this->usedCheckBox[channel], SIGNAL(toggled(bool)), this, SLOT(usedSwitched(bool)));
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+        connect(this->gainComboBox[channel], static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+                this, &VoltageDock::gainSelected);
+        connect(this->miscComboBox[channel], static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+                this, &VoltageDock::miscSelected);
+        connect(this->usedCheckBox[channel], &QCheckBox::toggled,
+                this, &VoltageDock::usedSwitched);
     }
 
     // Set values
-    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
-        if(channel < (int) this->settings->scope.physicalChannels)
-            this->setCoupling(channel, (Dso::Coupling) this->settings->scope.voltage[channel].misc);
+    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+        if(channel < this->settings->scope.physicalChannels)
+            this->setCoupling(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
         else
-            this->setMode((Dso::MathMode) this->settings->scope.voltage[channel].misc);
+            this->setMode((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc);
         this->setGain(channel, this->settings->scope.voltage[channel].gain);
         this->setUsed(channel, this->settings->scope.voltage[channel].used);
     }
@@ -618,22 +628,22 @@ void VoltageDock::closeEvent(QCloseEvent *event) {
 /// \param channel The channel, whose coupling should be set.
 /// \param coupling The coupling-mode.
 /// \return Index of coupling-mode, -1 on error.
-int VoltageDock::setCoupling(int channel, Dso::Coupling coupling) {
-    if(coupling < Dso::COUPLING_AC || coupling > Dso::COUPLING_GND)
+int VoltageDock::setCoupling(unsigned channel, DSO::Coupling coupling) {
+    if(coupling < DSO::Coupling::COUPLING_AC || coupling > DSO::Coupling::COUPLING_GND)
         return -1;
-    if(channel < 0 || channel >= (int) this->settings->scope.physicalChannels)
+    if(channel < 0 || channel >= this->settings->scope.physicalChannels)
         return -1;
 
-    this->miscComboBox[channel]->setCurrentIndex(coupling);
-    return coupling;
+    this->miscComboBox[channel]->setCurrentIndex((int)coupling);
+    return (int)coupling;
 }
 
 /// \brief Sets the gain for a channel.
 /// \param channel The channel, whose gain should be set.
 /// \param gain The gain in volts.
 /// \return Index of gain-value, -1 on error.
-int VoltageDock::setGain(int channel, double gain) {
-    if(channel < 0 || channel >= this->settings->scope.voltage.count())
+int VoltageDock::setGain(unsigned channel, double gain) {
+    if(channel < 0 || channel >= this->settings->scope.voltage.size())
         return -1;
 
     int index = this->gainSteps.indexOf(gain);
@@ -646,8 +656,8 @@ int VoltageDock::setGain(int channel, double gain) {
 /// \brief Sets the mode for the math channel.
 /// \param mode The math-mode.
 /// \return Index of math-mode, -1 on error.
-int VoltageDock::setMode(Dso::MathMode mode) {
-    if(mode >= Dso::MATHMODE_1ADD2 && mode <= Dso::MATHMODE_2SUB1) {
+int VoltageDock::setMode(DSOAnalyser::MathMode mode) {
+    if(mode >= DSOAnalyser::MATHMODE_1ADD2 && mode <= DSOAnalyser::MATHMODE_2SUB1) {
         this->miscComboBox[this->settings->scope.physicalChannels]->setCurrentIndex(mode);
         return mode;
     }
@@ -659,8 +669,8 @@ int VoltageDock::setMode(Dso::MathMode mode) {
 /// \param channel The channel, that should be enabled/disabled.
 /// \param used True if the channel should be enabled, false otherwise.
 /// \return Index of channel, -1 on error.
-int VoltageDock::setUsed(int channel, bool used) {
-    if(channel >= 0 && channel < this->settings->scope.voltage.count()) {
+int VoltageDock::setUsed(unsigned channel, bool used) {
+    if(channel >= 0 && channel < this->settings->scope.voltage.size()) {
         this->usedCheckBox[channel]->setChecked(used);
         return channel;
     }
@@ -671,15 +681,15 @@ int VoltageDock::setUsed(int channel, bool used) {
 /// \brief Called when the gain combo box changes it's value.
 /// \param index The index of the combo box item.
 void VoltageDock::gainSelected(int index) {
-    int channel;
+    unsigned channel;
 
     // Which combobox was it?
-    for(channel = 0; channel < this->settings->scope.voltage.count(); ++channel)
+    for(channel = 0; channel < this->settings->scope.voltage.size(); ++channel)
         if(this->sender() == this->gainComboBox[channel])
             break;
 
     // Send signal if it was one of the comboboxes
-    if(channel < this->settings->scope.voltage.count()) {
+    if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.voltage[channel].gain = this->gainSteps.at(index);
 
         emit gainChanged(channel, this->settings->scope.voltage[channel].gain);
@@ -689,35 +699,35 @@ void VoltageDock::gainSelected(int index) {
 /// \brief Called when the misc combo box changes it's value.
 /// \param index The index of the combo box item.
 void VoltageDock::miscSelected(int index) {
-    int channel;
+    unsigned channel;
 
     // Which combobox was it?
-    for(channel = 0; channel < this->settings->scope.voltage.count(); ++channel)
+    for(channel = 0; channel < this->settings->scope.voltage.size(); ++channel)
         if(this->sender() == this->miscComboBox[channel])
             break;
 
     // Send signal if it was one of the comboboxes
-    if(channel < this->settings->scope.voltage.count()) {
+    if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.voltage[channel].misc = index;
-        if(channel < (int) this->settings->scope.physicalChannels)
-            emit couplingChanged(channel, (Dso::Coupling) this->settings->scope.voltage[channel].misc);
+        if(channel < this->settings->scope.physicalChannels)
+            emit couplingChanged(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
         else
-            emit modeChanged((Dso::MathMode) this->settings->scope.voltage[channel].misc);
+            emit modeChanged((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc);
     }
 }
 
 /// \brief Called when the used checkbox is switched.
 /// \param checked The check-state of the checkbox.
 void VoltageDock::usedSwitched(bool checked) {
-    int channel;
+    unsigned channel;
 
     // Which checkbox was it?
-    for(channel = 0; channel < this->settings->scope.voltage.count(); ++channel)
+    for(channel = 0; channel < this->settings->scope.voltage.size(); ++channel)
         if(this->sender() == this->usedCheckBox[channel])
             break;
     
     // Send signal if it was one of the checkboxes
-    if(channel < this->settings->scope.voltage.count()) {
+    if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.voltage[channel].used = checked;
         emit usedChanged(channel, checked);
     }

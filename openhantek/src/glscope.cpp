@@ -31,7 +31,7 @@
 
 #include "glscope.h"
 
-#include "dataanalyzer.h"
+#include "dataAnalyzer.h"
 #include "glgenerator.h"
 #include "settings.h"
 
@@ -100,20 +100,20 @@ void GlScope::paintGL() {
             fadingFactor[index] = fadingFactor[index - 1] * fadingRatio;
 
         switch(this->settings->scope.horizontal.format) {
-            case Dso::GRAPHFORMAT_TY:
+            case DSOAnalyser::GRAPHFORMAT_TY:
                 // Real and virtual channels
-                for(int mode = Dso::CHANNELMODE_VOLTAGE; mode < Dso::CHANNELMODE_COUNT; ++mode) {
-                    for(int channel = 0; channel < this->settings->scope.voltage.count(); ++channel) {
-                        if((mode == Dso::CHANNELMODE_VOLTAGE) ? this->settings->scope.voltage[channel].used : this->settings->scope.spectrum[channel].used) {
+                for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
+                    for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
+                        if((mode == CHANNELMODE_VOLTAGE) ? this->settings->scope.voltage[channel].used : this->settings->scope.spectrum[channel].used) {
                             // Draw graph for all available depths
                             for(int index = this->generator->digitalPhosphorDepth - 1; index >= 0; index--) {
                                 if(!this->generator->vaChannel[mode][channel][index].empty()) {
-                                    if(mode == Dso::CHANNELMODE_VOLTAGE)
+                                    if(mode == CHANNELMODE_VOLTAGE)
                                         this->qglColor(this->settings->view.color.screen.voltage[channel].darker(fadingFactor[index]));
                                     else
                                         this->qglColor(this->settings->view.color.screen.spectrum[channel].darker(fadingFactor[index]));
                                     glVertexPointer(2, GL_FLOAT, 0, &this->generator->vaChannel[mode][channel][index].front());
-                                    glDrawArrays((this->settings->view.interpolation == Dso::INTERPOLATION_OFF) ? GL_POINTS : GL_LINE_STRIP, 0, this->generator->vaChannel[mode][channel][index].size() / 2);
+                                    glDrawArrays((this->settings->view.interpolation == INTERPOLATION_OFF) ? GL_POINTS : GL_LINE_STRIP, 0, this->generator->vaChannel[mode][channel][index].size() / 2);
                                 }
                             }
                         }
@@ -121,16 +121,16 @@ void GlScope::paintGL() {
                 }
                 break;
 
-            case Dso::GRAPHFORMAT_XY:
+            case DSOAnalyser::GRAPHFORMAT_XY:
                 // Real and virtual channels
-                for(int channel = 0; channel < this->settings->scope.voltage.count() - 1; channel += 2) {
+                for(unsigned channel = 0; channel < this->settings->scope.voltage.size() - 1; channel += 2) {
                     if(this->settings->scope.voltage[channel].used) {
                         // Draw graph for all available depths
                         for(int index = this->generator->digitalPhosphorDepth - 1; index >= 0; index--) {
-                            if(!this->generator->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].empty()) {
+                            if(!this->generator->vaChannel[CHANNELMODE_VOLTAGE][channel][index].empty()) {
                                 this->qglColor(this->settings->view.color.screen.voltage[channel].darker(fadingFactor[index]));
-                                glVertexPointer(2, GL_FLOAT, 0, &this->generator->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].front());
-                                glDrawArrays((this->settings->view.interpolation == Dso::INTERPOLATION_OFF) ? GL_POINTS : GL_LINE_STRIP, 0, this->generator->vaChannel[Dso::CHANNELMODE_VOLTAGE][channel][index].size() / 2);
+                                glVertexPointer(2, GL_FLOAT, 0, &this->generator->vaChannel[CHANNELMODE_VOLTAGE][channel][index].front());
+                                glDrawArrays((this->settings->view.interpolation == INTERPOLATION_OFF) ? GL_POINTS : GL_LINE_STRIP, 0, this->generator->vaChannel[CHANNELMODE_VOLTAGE][channel][index].size() / 2);
                             }
                         }
                     }
@@ -199,9 +199,9 @@ void GlScope::resizeGL(int width, int height) {
 /// \param generator Pointer to the GlGenerator class.
 void GlScope::setGenerator(GlGenerator *generator) {
     if(this->generator)
-        disconnect(this->generator, SIGNAL(graphsGenerated()), this, SLOT(updateGL()));
+        disconnect(this->generator, &GlGenerator::graphsGenerated, this, &GlScope::updateGL);
     this->generator = generator;
-    connect(this->generator, SIGNAL(graphsGenerated()), this, SLOT(updateGL()));
+    connect(this->generator, &GlGenerator::graphsGenerated, this, &GlScope::updateGL);
 }
 
 /// \brief Set the zoom mode for this GlScope.

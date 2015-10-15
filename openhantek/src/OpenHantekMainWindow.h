@@ -27,6 +27,7 @@
 
 
 #include <QMainWindow>
+#include <memory>
 
 class QActionGroup;
 class QLineEdit;
@@ -70,7 +71,7 @@ class OpenHantekMainWindow : public QMainWindow {
         void connectSignals();
 
         // Device management
-        void setDevice(DSO::DeviceBase* device);
+        void setDevice(std::shared_ptr<DSO::DeviceBase> device);
 
         // Settings
         int readSettings(const QString &fileName = QString());
@@ -119,8 +120,8 @@ class OpenHantekMainWindow : public QMainWindow {
 #endif
 
         // Data handling classes
-        DSOAnalyser::DataAnalyzer *dataAnalyzer = nullptr;
-        DSO::DeviceBase* _device   = nullptr;
+        std::shared_ptr<DSOAnalyser::DataAnalyzer> dataAnalyzer;
+        std::shared_ptr<DSO::DeviceBase> _device;
 
         // Other variables
         QString currentFile;

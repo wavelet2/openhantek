@@ -50,14 +50,14 @@ class DsoWidget : public QWidget {
     public:
         DsoWidget(OpenHantekSettings *settings, QWidget *parent = 0, Qt::WindowFlags flags = 0);
         ~DsoWidget();
-        void setDataAnalyzer(DSOAnalyser::DataAnalyzer *dataAnalyzer);
+        void setDataAnalyzer(std::shared_ptr<DSOAnalyser::DataAnalyzer>& dataAnalyzer);
 
     protected:
         void adaptTriggerLevelSlider(unsigned int channel);
         void setMeasurementVisible(unsigned int channel, bool visible);
         void updateMarkerDetails();
         void updateSpectrumDetails(unsigned int channel);
-        void updateTriggerDetails();
+        void updateTriggerDetails(unsigned channel);
         void updateVoltageDetails(unsigned int channel);
 
         QGridLayout *mainLayout; ///< The main layout for this widget
@@ -93,8 +93,8 @@ class DsoWidget : public QWidget {
 
         OpenHantekSettings *settings; ///< The settings provided by the main window
 
-        DataAnalyzer *dataAnalyzer; ///< The data source provided by the main window
-
+        /// The data source provided by the main window
+        std::shared_ptr<DSOAnalyser::DataAnalyzer> dataAnalyzer;
     public slots:
         // Horizontal axis
         //void horizontalFormatChanged(HorizontalFormat format);
@@ -132,7 +132,7 @@ class DsoWidget : public QWidget {
 
     protected slots:
         // Sliders
-        void updateOffset(int channel, double value);
+        void updateOffset(unsigned channel, double value);
         void updateTriggerPosition(int index, double value);
         void updateTriggerLevel(int channel, double value);
         void updateMarker(int marker, double value);

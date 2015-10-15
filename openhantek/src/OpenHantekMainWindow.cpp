@@ -34,6 +34,8 @@
 #include <QToolBar>
 #include <QStatusBar>
 
+#include <functional>
+
 // Widgets
 #include "configdialog.h"
 #include "dockwindows.h"
@@ -43,11 +45,8 @@
 #include "OpenHantekMainWindow.h"
 
 // libs
-//#include "dsocontrol.h"
 #include "dataAnalyzer.h"
 #include "deviceBase.h"
-//#include "libHantekDSO/control.h"
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // class OpenHantekMainWindow
@@ -110,36 +109,36 @@ void OpenHantekMainWindow::createActions() {
     this->openAction = new QAction(QIcon(":actions/open.png"), tr("&Open..."), this);
     this->openAction->setShortcut(tr("Ctrl+O"));
     this->openAction->setStatusTip(tr("Open saved settings"));
-    connect(this->openAction, SIGNAL(triggered()), this, SLOT(open()));
+    connect(this->openAction, &QAction::triggered, this, &OpenHantekMainWindow::open);
 
     this->saveAction = new QAction(QIcon(":actions/save.png"), tr("&Save"), this);
     this->saveAction->setShortcut(tr("Ctrl+S"));
     this->saveAction->setStatusTip(tr("Save the current settings"));
-    connect(this->saveAction, SIGNAL(triggered()), this, SLOT(save()));
+    connect(this->saveAction, &QAction::triggered, this, &OpenHantekMainWindow::save);
 
     this->saveAsAction = new QAction(QIcon(":actions/save-as.png"), tr("Save &as..."), this);
     this->saveAsAction->setStatusTip(tr("Save the current settings to another file"));
-    connect(this->saveAsAction, SIGNAL(triggered()), this, SLOT(saveAs()));
+    connect(this->saveAsAction, &QAction::triggered, this, &OpenHantekMainWindow::saveAs);
 
     this->printAction = new QAction(QIcon(":actions/print.png"), tr("&Print..."), this);
     this->printAction->setShortcut(tr("Ctrl+P"));
     this->printAction->setStatusTip(tr("Print the oscilloscope screen"));
-    connect(this->printAction, SIGNAL(triggered()), this->dsoWidget, SLOT(print()));
+    connect(this->printAction, &QAction::triggered, this->dsoWidget, &DsoWidget::print);
 
     this->exportAsAction = new QAction(QIcon(":actions/export-as.png"), tr("&Export as..."), this);
     this->exportAsAction->setShortcut(tr("Ctrl+E"));
     this->exportAsAction->setStatusTip(tr("Export the oscilloscope data to a file"));
-    connect(this->exportAsAction, SIGNAL(triggered()), this->dsoWidget, SLOT(exportAs()));
+    connect(this->exportAsAction, &QAction::triggered, this->dsoWidget, &DsoWidget::exportAs);
 
     this->exitAction = new QAction(tr("E&xit"), this);
     this->exitAction->setShortcut(tr("Ctrl+Q"));
     this->exitAction->setStatusTip(tr("Exit the application"));
-    connect(this->exitAction, SIGNAL(triggered()), this, SLOT(close()));
+    connect(this->exitAction, &QAction::triggered, this, &OpenHantekMainWindow::close);
 
     this->configAction = new QAction(tr("&Settings"), this);
     this->configAction->setShortcut(tr("Ctrl+S"));
     this->configAction->setStatusTip(tr("Configure the oscilloscope"));
-    connect(this->configAction, SIGNAL(triggered()), this, SLOT(config()));
+    connect(this->configAction, &QAction::triggered, this, &OpenHantekMainWindow::config);
 
     this->startStopAction = new QAction(this);
     this->startStopAction->setShortcut(tr("Space"));
@@ -149,22 +148,22 @@ void OpenHantekMainWindow::createActions() {
     this->digitalPhosphorAction->setCheckable(true);
     this->digitalPhosphorAction->setChecked(this->settings->view.digitalPhosphor);
     this->digitalPhosphor(this->settings->view.digitalPhosphor);
-    connect(this->digitalPhosphorAction, SIGNAL(toggled(bool)), this, SLOT(digitalPhosphor(bool)));
+    connect(this->digitalPhosphorAction, &QAction::toggled, this, &OpenHantekMainWindow::digitalPhosphor);
 
     this->zoomAction = new QAction(QIcon(":actions/zoom.png"), tr("&Zoom"), this);
     this->zoomAction->setCheckable(true);
     this->zoomAction->setChecked(this->settings->view.zoom);
     this->zoom(this->settings->view.zoom);
-    connect(this->zoomAction, SIGNAL(toggled(bool)), this, SLOT(zoom(bool)));
-    connect(this->zoomAction, SIGNAL(toggled(bool)), this->dsoWidget, SLOT(updateZoom(bool)));
+    connect(this->zoomAction, &QAction::toggled, this, &OpenHantekMainWindow::zoom);
+    connect(this->zoomAction, &QAction::toggled, this->dsoWidget, &DsoWidget::updateZoom);
 
     this->aboutAction = new QAction(tr("&About"), this);
     this->aboutAction->setStatusTip(tr("Show information about this program"));
-    connect(this->aboutAction, SIGNAL(triggered()), this, SLOT(about()));
+    connect(this->aboutAction, &QAction::triggered, this, &OpenHantekMainWindow::about);
 
     this->aboutQtAction = new QAction(tr("About &Qt"), this);
     this->aboutQtAction->setStatusTip(tr("Show the Qt library's About box"));
-    connect(this->aboutQtAction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
+    connect(this->aboutQtAction, &QAction::triggered, qApp, &QApplication::aboutQt);
 
 #ifdef DEBUG
     this->commandAction = new QAction(tr("Send command"), this);
@@ -246,9 +245,9 @@ void OpenHantekMainWindow::createStatusBar() {
     this->statusBar()->showMessage(tr("Ready"));
 
 #ifdef DEBUG
-    connect(this->commandAction, SIGNAL(triggered()), this->commandEdit, SLOT(show()));
-    connect(this->commandAction, SIGNAL(triggered()), this->commandEdit, SLOT(setFocus()));
-    connect(this->commandEdit, SIGNAL(returnPressed()), this, SLOT(sendCommand()));
+    connect(this->commandAction, &QAction::triggered, this->commandEdit, &QLineEdit::show);
+    connect(this->commandAction, &QAction::triggered, this->commandEdit, &QLineEdit::setFocus);
+    connect(this->commandEdit, &QLineEdit::returnPressed, this, &OpenHantekMainWindow::sendCommand);
 #endif
 }
 
@@ -264,65 +263,77 @@ void OpenHantekMainWindow::createDockWindows()
 /// \brief Connect general signals and device management signals.
 void OpenHantekMainWindow::connectSignals() {
     // Connect general signals
-    connect(this, SIGNAL(settingsChanged()), this, SLOT(applySettings()));
-    //connect(this->dsoWidget, SIGNAL(stopped()), this, SLOT(stopped()));
+    connect(this, &OpenHantekMainWindow::settingsChanged, this, &OpenHantekMainWindow::applySettings);
 
     // Connect signals to DSO controller and widget
-    connect(this->horizontalDock, SIGNAL(samplerateChanged(double)), this, SLOT(samplerateSelected()));
-    connect(this->horizontalDock, SIGNAL(timebaseChanged(double)), this, SLOT(timebaseSelected()));
-    connect(this->horizontalDock, SIGNAL(frequencybaseChanged(double)), this->dsoWidget, SLOT(updateFrequencybase(double)));
-    connect(this->horizontalDock, SIGNAL(recordLengthChanged(unsigned long)), this, SLOT(recordLengthSelected(unsigned long)));
-    //connect(this->horizontalDock, SIGNAL(formatChanged(HorizontalFormat)), this->dsoWidget, SLOT(horizontalFormatChanged(HorizontalFormat)));
+    connect(this->horizontalDock, &HorizontalDock::samplerateChanged, this, &OpenHantekMainWindow::samplerateSelected);
+    connect(this->horizontalDock, &HorizontalDock::timebaseChanged, this, &OpenHantekMainWindow::timebaseSelected);
+    connect(this->horizontalDock, &HorizontalDock::frequencybaseChanged, this->dsoWidget, &DsoWidget::updateFrequencybase);
+    connect(this->horizontalDock, &HorizontalDock::recordLengthChanged, this, &OpenHantekMainWindow::recordLengthSelected);
 
+    connect(this->voltageDock, &VoltageDock::usedChanged, this, &OpenHantekMainWindow::updateUsed);
+    connect(this->voltageDock, &VoltageDock::usedChanged, this->dsoWidget, &DsoWidget::updateVoltageUsed);
+    connect(this->voltageDock, &VoltageDock::couplingChanged, this->dsoWidget, &DsoWidget::updateVoltageCoupling);
+    connect(this->voltageDock, &VoltageDock::modeChanged, this->dsoWidget, &DsoWidget::updateMathMode);
+    connect(this->voltageDock, &VoltageDock::gainChanged, this, &OpenHantekMainWindow::updateVoltageGain);
+    connect(this->voltageDock, &VoltageDock::gainChanged, this->dsoWidget, &DsoWidget::updateVoltageGain);
+    connect(this->dsoWidget, &DsoWidget::offsetChanged, this, &OpenHantekMainWindow::updateOffset);
 
-    connect(this->voltageDock, SIGNAL(usedChanged(unsigned int, bool)), this, SLOT(updateUsed(unsigned int)));
-    connect(this->voltageDock, SIGNAL(usedChanged(unsigned int, bool)), this->dsoWidget, SLOT(updateVoltageUsed(unsigned int, bool)));
-    connect(this->voltageDock, SIGNAL(couplingChanged(unsigned int, Dso::Coupling)), this->dsoWidget, SLOT(updateVoltageCoupling(unsigned int)));
-    connect(this->voltageDock, SIGNAL(modeChanged(Dso::MathMode)), this->dsoWidget, SLOT(updateMathMode()));
-    connect(this->voltageDock, SIGNAL(gainChanged(unsigned int, double)), this, SLOT(updateVoltageGain(unsigned int)));
-    connect(this->voltageDock, SIGNAL(gainChanged(unsigned int, double)), this->dsoWidget, SLOT(updateVoltageGain(unsigned int)));
-    connect(this->dsoWidget, SIGNAL(offsetChanged(unsigned int, double)), this, SLOT(updateOffset(unsigned int)));
+    connect(this->spectrumDock, &SpectrumDock::usedChanged, this, &OpenHantekMainWindow::updateUsed);
+    connect(this->spectrumDock, &SpectrumDock::usedChanged, this->dsoWidget, &DsoWidget::updateSpectrumUsed);
+    connect(this->spectrumDock, &SpectrumDock::magnitudeChanged, this->dsoWidget, &DsoWidget::updateSpectrumMagnitude);
 
-    connect(this->spectrumDock, SIGNAL(usedChanged(unsigned int, bool)), this, SLOT(updateUsed(unsigned int)));
-    connect(this->spectrumDock, SIGNAL(usedChanged(unsigned int, bool)), this->dsoWidget, SLOT(updateSpectrumUsed(unsigned int, bool)));
-    connect(this->spectrumDock, SIGNAL(magnitudeChanged(unsigned int, double)), this->dsoWidget, SLOT(updateSpectrumMagnitude(unsigned int)));
+    connect(this->triggerDock, &TriggerDock::modeChanged, this->dsoWidget, &DsoWidget::updateTriggerMode);
+    connect(this->triggerDock, &TriggerDock::sourceChanged, this->dsoWidget, &DsoWidget::updateTriggerSource);
+    connect(this->triggerDock, &TriggerDock::slopeChanged, this->dsoWidget, &DsoWidget::updateTriggerSlope);
+
 }
 
 /// \brief Initialize the device with the current settings.
-void OpenHantekMainWindow::setDevice(DSO::DeviceBase* device) {
+void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
+    using namespace std::placeholders;
+
     _device = device;
-    this->dataAnalyzer = new DSOAnalyser::DataAnalyzer(device, &(this->settings->scope));
+    this->dataAnalyzer = std::make_shared<DSOAnalyser::DataAnalyzer>(device, &(this->settings->scope));
     this->dsoWidget->setDataAnalyzer(dataAnalyzer);
     this->settings->setChannelCount(_device->getChannelCount());
     this->triggerDock->setChannels(_device->getSpecialTriggerSources());
 
-    connect(this->voltageDock, SIGNAL(couplingChanged(unsigned int, Dso::Coupling)), _device, SLOT(setCoupling(unsigned int, Dso::Coupling)));
-    connect(_device, SIGNAL(statusMessage(QString, int)), this->statusBar(), SLOT(showMessage(QString, int)));
-    connect(_device, SIGNAL(samplesAvailable(const std::vector<std::vector<double> > *, double, bool, QMutex *)), this->dataAnalyzer, SLOT(analyze(const std::vector<std::vector<double> > *, double, bool, QMutex *)));
-    connect(this->triggerDock, SIGNAL(modeChanged(Dso::TriggerMode)), _device, SLOT(setTriggerMode(Dso::TriggerMode)));
-    connect(this->triggerDock, SIGNAL(modeChanged(Dso::TriggerMode)), this->dsoWidget, SLOT(updateTriggerMode()));
-    connect(this->triggerDock, SIGNAL(sourceChanged(bool, unsigned int)), _device, SLOT(setTriggerSource(bool, unsigned int)));
-    connect(this->triggerDock, SIGNAL(sourceChanged(bool, unsigned int)), this->dsoWidget, SLOT(updateTriggerSource()));
-    connect(this->triggerDock, SIGNAL(slopeChanged(Dso::Slope)), _device, SLOT(setTriggerSlope(Dso::Slope)));
-    connect(this->triggerDock, SIGNAL(slopeChanged(Dso::Slope)), this->dsoWidget, SLOT(updateTriggerSlope()));
-    connect(this->dsoWidget, SIGNAL(triggerPositionChanged(double)), _device, SLOT(setPretriggerPosition(double)));
-    connect(this->dsoWidget, SIGNAL(triggerLevelChanged(unsigned int, double)), _device, SLOT(setTriggerLevel(unsigned int, double)));
+    connect(this->startStopAction, &QAction::triggered,
+        std::bind(&DSO::DeviceBase::toogleSampling, _device));
+
+    connect(this->voltageDock, &VoltageDock::couplingChanged,
+        std::bind(&DSO::DeviceBase::setCoupling, _device, _1, _2));
+
+    connect(this->triggerDock, &TriggerDock::modeChanged,
+        std::bind(&DSO::DeviceBase::setTriggerMode, _device, _1));
+    connect(this->triggerDock, &TriggerDock::sourceChanged,
+         std::bind(&DSO::DeviceBase::setTriggerSource, _device, _1, _2));
+    connect(this->dsoWidget, &DsoWidget::triggerPositionChanged,
+         std::bind(&DSO::DeviceBase::setPretriggerPosition, _device, _1));
+    connect(this->triggerDock, &TriggerDock::slopeChanged,
+        std::bind(&DSO::DeviceBase::setTriggerSlope, _device, _1));
+    connect(this->dsoWidget, &DsoWidget::triggerLevelChanged,
+        std::bind(&DSO::DeviceBase::setTriggerLevel, _device, _1, _2));
+
+    _device->_statusMessage = [this](int code) {
+        this->statusBar()->showMessage(libUsbErrorString(code));
+    };
 
     // Started/stopped signals from oscilloscope
-    connect(_device, SIGNAL(samplingStarted()), this, SLOT(started()));
-    connect(_device, SIGNAL(samplingStopped()), this, SLOT(stopped()));
+    _device->_samplingStarted = std::bind(&OpenHantekMainWindow::started, this);
+    _device->_samplingStopped = std::bind(&OpenHantekMainWindow::stopped, this);
 
-    //connect(_device, SIGNAL(recordLengthChanged(unsigned long)), this, SLOT(recordLengthChanged()));
-    connect(_device, SIGNAL(recordTimeChanged(double)), this, SLOT(recordTimeChanged(double)));
-    connect(_device, SIGNAL(samplerateChanged(double)), this, SLOT(samplerateChanged(double)));
+    _device->_recordTimeChanged = std::bind(&OpenHantekMainWindow::recordTimeChanged, this, std::placeholders::_1);
+    _device->_samplerateChanged = std::bind(&OpenHantekMainWindow::samplerateChanged, this, std::placeholders::_1);
 
-    connect(_device, SIGNAL(availableRecordLengthsChanged(QList<unsigned int>)), this->horizontalDock, SLOT(availableRecordLengthsChanged(QList<unsigned int>)));
-    connect(_device, SIGNAL(samplerateLimitsChanged(double, double)), this->horizontalDock, SLOT(samplerateLimitsChanged(double, double)));
+    _device->_availableRecordLengthsChanged = std::bind(&HorizontalDock::availableRecordLengthsChanged, this->horizontalDock, std::placeholders::_1);
+    _device->_samplerateLimitsChanged = std::bind(&HorizontalDock::samplerateLimitsChanged, this->horizontalDock, std::placeholders::_1, std::placeholders::_2);
 
     _device->connectDevice();
 
     for(unsigned int channel = 0; channel < this->settings->scope.physicalChannels; ++channel) {
-        _device->setCoupling(channel, (Dso::Coupling) this->settings->scope.voltage[channel].misc);
+        _device->setCoupling(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
         this->updateVoltageGain(channel);
         this->updateOffset(channel);
         _device->setTriggerLevel(channel, this->settings->scope.voltage[channel].trigger);
@@ -332,10 +343,10 @@ void OpenHantekMainWindow::setDevice(DSO::DeviceBase* device) {
         this->samplerateSelected();
     else
         this->timebaseSelected();
-    if(_device->getAvailableRecordLengths()->isEmpty())
+    if(!_device->getAvailableRecordLengths()->size())
         _device->setRecordLength(this->settings->scope.horizontal.recordLength);
     else {
-        int index = _device->getAvailableRecordLengths()->indexOf(this->settings->scope.horizontal.recordLength);
+        int index = indexOf(*_device->getAvailableRecordLengths(), this->settings->scope.horizontal.recordLength);
         _device->setRecordLength(index < 0 ? 1 : index);
     }
     _device->setTriggerMode(this->settings->scope.trigger.mode);
@@ -364,7 +375,7 @@ int OpenHantekMainWindow::readSettings(const QString &fileName) {
 int OpenHantekMainWindow::writeSettings(const QString &fileName) {
     this->updateSettings();
 
-    return this->settings->save(fileName);
+    return this->settings->saveAs(fileName);
 }
 
 /// \brief Called everytime the window is moved.
@@ -423,9 +434,6 @@ void OpenHantekMainWindow::started() {
     this->startStopAction->setText(tr("&Stop"));
     this->startStopAction->setIcon(QIcon(":actions/stop.png"));
     this->startStopAction->setStatusTip(tr("Stop the oscilloscope"));
-
-    disconnect(this->startStopAction, SIGNAL(triggered()), _device, SLOT(startSampling()));
-    connect(this->startStopAction, SIGNAL(triggered()), _device, SLOT(stopSampling()));
 }
 
 /// \brief The oscilloscope stopped sampling.
@@ -433,9 +441,6 @@ void OpenHantekMainWindow::stopped() {
     this->startStopAction->setText(tr("&Start"));
     this->startStopAction->setIcon(QIcon(":actions/start.png"));
     this->startStopAction->setStatusTip(tr("Start the oscilloscope"));
-
-    disconnect(this->startStopAction, SIGNAL(triggered()), _device, SLOT(stopSampling()));
-    connect(this->startStopAction, SIGNAL(triggered()), _device, SLOT(startSampling()));
 }
 
 /// \brief Configure the oscilloscope.
@@ -610,6 +615,7 @@ void OpenHantekMainWindow::updateSettings() {
 /// \brief The oscilloscope changed the record time.
 /// \param duration The new record time duration in seconds.
 void OpenHantekMainWindow::recordTimeChanged(double duration) {
+    if (!_device) return;
     if(this->settings->scope.horizontal.samplerateSet && this->settings->scope.horizontal.recordLength != UINT_MAX) {
         // The samplerate was set, let's adapt the timebase accordingly
         this->settings->scope.horizontal.timebase = duration / DIVS_TIME;
@@ -637,22 +643,26 @@ void OpenHantekMainWindow::samplerateChanged(double samplerate) {
 /// \brief Apply new record length to settings.
 /// \param recordLength The selected record length in samples.
 void OpenHantekMainWindow::recordLengthSelected(unsigned long recordLength) {
+    if (!_device) return;
     _device->setRecordLength(recordLength);
 }
 
 /// \brief Sets the samplerate of the oscilloscope.
 void OpenHantekMainWindow::samplerateSelected() {
+    if (!_device) return;
     _device->setSamplerate(this->settings->scope.horizontal.samplerate);
 }
 
 /// \brief Sets the record time of the oscilloscope.
 void OpenHantekMainWindow::timebaseSelected() {
+    if (!_device) return;
     _device->setRecordTime(this->settings->scope.horizontal.timebase * DIVS_TIME);
 }
 
 /// \brief Sets the offset of the oscilloscope for the given channel.
 /// \param channel The channel that got a new offset.
 void OpenHantekMainWindow::updateOffset(unsigned int channel) {
+    if (!_device) return;
     if(channel >= this->settings->scope.physicalChannels)
         return;
 
@@ -662,7 +672,8 @@ void OpenHantekMainWindow::updateOffset(unsigned int channel) {
 /// \brief Sets the state of the given oscilloscope channel.
 /// \param channel The channel whose state has changed.
 void OpenHantekMainWindow::updateUsed(unsigned int channel) {
-    if(channel >= (unsigned int) this->settings->scope.voltage.count())
+    if (!_device) return;
+    if(channel >= (unsigned int) this->settings->scope.voltage.size())
         return;
 
     bool mathUsed = this->settings->scope.voltage[this->settings->scope.physicalChannels].used | this->settings->scope.spectrum[this->settings->scope.physicalChannels].used;
@@ -680,6 +691,7 @@ void OpenHantekMainWindow::updateUsed(unsigned int channel) {
 /// \brief Sets the gain of the oscilloscope for the given channel.
 /// \param channel The channel that got a new gain value.
 void OpenHantekMainWindow::updateVoltageGain(unsigned int channel) {
+    if (!_device) return;
     if(channel >= this->settings->scope.physicalChannels)
         return;
 

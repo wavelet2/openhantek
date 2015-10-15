@@ -60,11 +60,11 @@ namespace DsoStrings {
     /// \return The string that should be used in labels etc.
     QString couplingString(Coupling coupling) {
         switch(coupling) {
-            case COUPLING_AC:
+            case Coupling::COUPLING_AC:
                 return QCoreApplication::tr("AC");
-            case COUPLING_DC:
+            case Coupling::COUPLING_DC:
                 return QCoreApplication::tr("DC");
-            case COUPLING_GND:
+            case Coupling::COUPLING_GND:
                 return QCoreApplication::tr("GND");
             default:
                 return QString();
@@ -92,11 +92,11 @@ namespace DsoStrings {
     /// \return The string that should be used in labels etc.
     QString triggerModeString(TriggerMode mode) {
         switch(mode) {
-            case TRIGGERMODE_AUTO:
+            case TriggerMode::TRIGGERMODE_AUTO:
                 return QCoreApplication::tr("Auto");
-            case TRIGGERMODE_NORMAL:
+            case TriggerMode::TRIGGERMODE_NORMAL:
                 return QCoreApplication::tr("Normal");
-            case TRIGGERMODE_SINGLE:
+            case TriggerMode::TRIGGERMODE_SINGLE:
                 return QCoreApplication::tr("Single");
             default:
                 return QString();
@@ -108,9 +108,9 @@ namespace DsoStrings {
     /// \return The string that should be used in labels etc.
     QString slopeString(Slope slope) {
         switch(slope) {
-            case SLOPE_POSITIVE:
+            case Slope::SLOPE_POSITIVE:
                 return QString::fromUtf8("\u2197");
-            case SLOPE_NEGATIVE:
+            case Slope::SLOPE_NEGATIVE:
                 return QString::fromUtf8("\u2198");
             default:
                 return QString();
@@ -211,4 +211,5 @@ QString libUsbErrorString(int error) {
                 return QCoreApplication::tr("Operation not supported or unimplemented on this platform");
         default:
                 return QCoreApplication::tr("Other error");
+    }
 }

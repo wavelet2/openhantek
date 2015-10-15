@@ -138,7 +138,8 @@ class OpenHantekSettings : public QObject {
     public slots:
         // Saving to and loading from configuration files
         int load(const QString &fileName = QString());
-        int save(const QString &fileName = QString());
+        int save();
+        int saveAs(const QString &fileName);
 };
 
 

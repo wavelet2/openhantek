@@ -36,7 +36,7 @@
 
 #include "exporter.h"
 
-#include "dataanalyzer.h"
+#include "dataAnalyzer.h"
 #include "dsostrings.h"
 #include "glgenerator.h"
 #include "helper.h"
@@ -46,7 +46,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 // class HorizontalDock
 /// \brief Initializes the printer object.
-Exporter::Exporter(OpenHantekSettings *settings, DataAnalyzer *dataAnalyzer, QWidget *parent) : QObject(parent) {
+Exporter::Exporter(OpenHantekSettings *settings, DSOAnalyser::DataAnalyzer *dataAnalyzer, QWidget *parent) : QObject(parent) {
     this->settings = settings;
     this->dataAnalyzer = dataAnalyzer;
 
@@ -118,7 +118,7 @@ bool Exporter::doExport() {
 
         painter.setBrush(Qt::SolidPattern);
 
-        this->dataAnalyzer->mutex()->lock();
+        this->dataAnalyzer->mutex().lock();
 
         // Draw the settings table
         double stretchBase = (double) (paintDevice->width() - lineHeight * 10) / 4;
@@ -127,7 +127,12 @@ bool Exporter::doExport() {
         painter.setPen(colorValues->voltage[this->settings->scope.trigger.source]);
         QString levelString = Helper::valueToString(this->settings->scope.voltage[this->settings->scope.trigger.source].trigger, Helper::UNIT_VOLTS, 3);
         QString pretriggerString = tr("%L1%").arg((int) (this->settings->scope.trigger.position * 100 + 0.5));
-        painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight), tr("%1  %2  %3  %4").arg(this->settings->scope.voltage[this->settings->scope.trigger.source].name, DsoStrings::slopeString(this->settings->scope.trigger.slope), levelString, pretriggerString));
+        painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight),
+                         tr("%1  %2  %3  %4").arg(
+                            QString::fromStdString(this->settings->scope.voltage[this->settings->scope.trigger.source].name),
+                            DsoStrings::slopeString(this->settings->scope.trigger.slope),
+                            levelString,
+                            pretriggerString));
 
         // Print sample count
         painter.setPen(colorValues->text);
@@ -142,19 +147,22 @@ bool Exporter::doExport() {
         // Draw the measurement table
         stretchBase = (double) (paintDevice->width() - lineHeight * 6) / 10;
         int channelCount = 0;
-        for(int channel = this->settings->scope.voltage.count() - 1; channel >= 0; channel--) {
+        for(int channel = this->settings->scope.voltage.size() - 1; channel >= 0; channel--) {
             if((this->settings->scope.voltage[channel].used || this->settings->scope.spectrum[channel].used) && this->dataAnalyzer->data(channel)) {
                 ++channelCount;
                 double top = (double) paintDevice->height() - channelCount * lineHeight;
 
                 // Print label
                 painter.setPen(colorValues->voltage[channel]);
-                painter.drawText(QRectF(0, top, lineHeight * 4, lineHeight), this->settings->scope.voltage[channel].name);
+                painter.drawText(QRectF(0, top, lineHeight * 4, lineHeight),
+                                 QString::fromStdString(this->settings->scope.voltage[channel].name));
                 // Print coupling/math mode
                 if((unsigned int) channel < this->settings->scope.physicalChannels)
-                    painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), DsoStrings::couplingString((Dso::Coupling) this->settings->scope.voltage[channel].misc));
+                    painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight),
+                                     DsoStrings::couplingString((DSO::Coupling) this->settings->scope.voltage[channel].misc));
                 else
-                    painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight), DsoStrings::mathModeString((Dso::MathMode) this->settings->scope.voltage[channel].misc));
+                    painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight),
+                                     DsoStrings::mathModeString((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc));
 
                 // Print voltage gain
                 painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), Helper::valueToString(this->settings->scope.voltage[channel].gain, Helper::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
@@ -210,11 +218,11 @@ bool Exporter::doExport() {
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setBrush(Qt::NoBrush);
 
-        for(int zoomed = 0; zoomed < (this->settings->view.zoom ? 2 : 1); ++zoomed) {
+        for(unsigned zoomed = 0; zoomed < (this->settings->view.zoom ? 2 : 1); ++zoomed) {
             switch(this->settings->scope.horizontal.format) {
-                case Dso::GRAPHFORMAT_TY:
+                case DSOAnalyser::GRAPHFORMAT_TY:
                     // Add graphs for channels
-                    for(int channel = 0 ; channel < this->settings->scope.voltage.count(); ++channel) {
+                    for(unsigned channel = 0 ; channel < this->settings->scope.voltage.size(); ++channel) {
                         if(this->settings->scope.voltage[channel].used && this->dataAnalyzer->data(channel)) {
                             painter.setPen(colorValues->voltage[channel]);
 
@@ -245,7 +253,7 @@ bool Exporter::doExport() {
                     }
 
                     // Add spectrum graphs
-                    for (int channel = 0; channel < this->settings->scope.spectrum.count(); ++channel) {
+                    for (unsigned channel = 0; channel < this->settings->scope.spectrum.size(); ++channel) {
                         if(this->settings->scope.spectrum[channel].used && this->dataAnalyzer->data(channel)) {
                             painter.setPen(colorValues->spectrum[channel]);
 
@@ -276,7 +284,7 @@ bool Exporter::doExport() {
                     }
                     break;
 
-                case Dso::GRAPHFORMAT_XY:
+                case DSOAnalyser::GRAPHFORMAT_XY:
                     break;
 
                 default:
@@ -287,7 +295,7 @@ bool Exporter::doExport() {
             painter.setMatrix(QMatrix((paintDevice->width() - 1) / DIVS_TIME * zoomFactor, 0, 0, -(scopeHeight - 1) / DIVS_VOLTAGE, (double) (paintDevice->width() - 1) / 2 - zoomOffset * zoomFactor * (paintDevice->width() - 1) / DIVS_TIME, (scopeHeight - 1) * 1.5 + lineHeight * 4), false);
         }
 
-        this->dataAnalyzer->mutex()->unlock();
+        this->dataAnalyzer->mutex().unlock();
 
         // Draw grids
         painter.setRenderHint(QPainter::Antialiasing, false);
@@ -375,11 +383,11 @@ bool Exporter::doExport() {
 
         QTextStream csvStream(&csvFile);
 
-        for(int channel = 0 ; channel < this->settings->scope.voltage.count(); ++channel) {
+        for(unsigned channel = 0 ; channel < this->settings->scope.voltage.size(); ++channel) {
             if(this->dataAnalyzer->data(channel)) {
                 if(this->settings->scope.voltage[channel].used) {
                     // Start with channel name and the sample interval
-                    csvStream << "\"" << this->settings->scope.voltage[channel].name << "\"," << this->dataAnalyzer->data(channel)->samples.voltage.interval;
+                    csvStream << "\"" << QString::fromStdString(this->settings->scope.voltage[channel].name) << "\"," << this->dataAnalyzer->data(channel)->samples.voltage.interval;
 
                     // And now all sample values in volts
                     for(unsigned int position = 0; position < this->dataAnalyzer->data(channel)->samples.voltage.sample.size(); ++position)
@@ -391,7 +399,7 @@ bool Exporter::doExport() {
 
                 if(this->settings->scope.spectrum[channel].used) {
                     // Start with channel name and the sample interval
-                    csvStream << "\"" << this->settings->scope.spectrum[channel].name << "\"," << this->dataAnalyzer->data(channel)->samples.spectrum.interval;
+                    csvStream << "\"" << QString::fromStdString(this->settings->scope.spectrum[channel].name) << "\"," << this->dataAnalyzer->data(channel)->samples.spectrum.interval;
 
                     // And now all magnitudes in dB
                     for(unsigned int position = 0; position < this->dataAnalyzer->data(channel)->samples.spectrum.sample.size(); ++position)
