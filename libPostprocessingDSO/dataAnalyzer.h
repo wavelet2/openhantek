@@ -26,6 +26,7 @@
 #include <thread>
 #include <mutex>
 #include <functional>
+#include <memory>
 #include <atomic>
 
 #include "dataAnalyzerSettings.h"
@@ -68,13 +69,21 @@ struct AnalyzedData {
 /// time-/frequencysteps between two values.
 class DataAnalyzer {
     public:
-        DataAnalyzer(DSO::DeviceBase* device, OpenHantekSettingsScope *analyserSettings);
+        DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, OpenHantekSettingsScope *analyserSettings);
         ~DataAnalyzer();
 
         const AnalyzedData *data(unsigned int channel) const;
-        unsigned int sampleCount();
-        std::mutex& mutex(); //TODO
+        unsigned int sampleCount() const;
 
+        /// Return a mutex that have to be locked while the analysed data
+        /// vector (acquired via data()) is in use and unlocked after that.
+        /// This class can not continue analysing incoming data until the
+        /// mutex is unlocked.
+        std::mutex& mutex();
+
+        /// Signal: Data has been analyzed. Get the data via
+        /// data(), get the sample count via sampleCount().
+        std::function<void()> _analyzed = [](){};
     private:
 
         /// Analyse incoming data from a device in a separate thread. Will make a copy of data for this purpose.
@@ -107,14 +116,12 @@ class DataAnalyzer {
         /// The maximum record length of the analyzed data
         unsigned int _maxSamples = 0;
 
-        /// Signal: Data with that much samples has been analyzed
-        std::function<void(unsigned long)> _analyzed = [](unsigned long){};
-
         /// A mutex that looks the analysing process to allow only one computation at a time
         std::atomic<bool> _analyseIsRunning;
-        std::mutex _mutex;
+        std::mutex _incoming_data_wait_mutex;
+        std::mutex _data_in_use_mutex;
         std::unique_ptr<std::thread> _thread;
-        DSO::DeviceBase* _device;
+        std::shared_ptr<DSO::DeviceBase> _device;
 };
 
 }

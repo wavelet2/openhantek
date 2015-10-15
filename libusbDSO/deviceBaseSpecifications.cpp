@@ -28,20 +28,17 @@
 #include <algorithm>
 
 #include "deviceBaseSpecifications.h"
-#include "utils/containerStream.h"
 
 namespace DSO {
-std::vector<int>& operator<<(std::vector<int>& v, int x);
-std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x);
 
 DeviceBaseSpecifications::DeviceBaseSpecifications(const DSODeviceDescription& model) : _model(model) {
     // Use DSO-2090 specification as default
     _specification.samplerate.single.base = 50e6;
     _specification.samplerate.single.max = 50e6;
-    _specification.samplerate.single.recordLengths << 0;
+    _specification.samplerate.single.recordLengths.push_back(0);
     _specification.samplerate.multi.base = 100e6;
     _specification.samplerate.multi.max = 100e6;
-    _specification.samplerate.multi.recordLengths << 0;
+    _specification.samplerate.multi.recordLengths.push_back(0);
 
     for(unsigned int channel = 0; channel < _specification.channels; ++channel) {
         for(unsigned int gainId = 0; gainId < 9; ++gainId) {
@@ -69,6 +66,10 @@ DeviceBaseSpecifications::DeviceBaseSpecifications(const DSODeviceDescription& m
     }
     _settings.recordLengthId = 1;
     _settings.usedChannels = 0;
+}
+
+unsigned DeviceBaseSpecifications::getChannelCount() {
+    return _specification.channels;
 }
 
 }

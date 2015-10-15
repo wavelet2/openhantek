@@ -8,7 +8,6 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/")
 find_package(libusb REQUIRED)
-find_package(FFTW REQUIRED)
 
 include_directories(.)
 

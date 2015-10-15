@@ -108,6 +108,9 @@ public:
     /// \brief Stop sampling process.
     void stopSampling();
 
+    /// \brief Stop sampling process.
+    bool toogleSampling();
+
     inline bool isRollingMode() { return _settings.samplerate.limits->recordLengths[_settings.recordLengthId] == UINT_MAX; }
 
     /// Implement this and return the communication packet size in bytes, e.g. 64 on FullSpeed USB

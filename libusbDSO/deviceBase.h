@@ -126,8 +126,8 @@ class DeviceBase : public DeviceBaseSamples {
         std::function<void(void)> _deviceConnected = [](){};
         /// The oscilloscope device has been disconnected
         std::function<void(void)> _deviceDisconnected = [](){};
-        /// Status message about the oscilloscope (int messageID, int timeout)
-        std::function<void(int,int)> _statusMessage = [](int,int){};
+        /// Status message about the oscilloscope (int messageID)
+        std::function<void(int)> _statusMessage = [](int){};
 
 protected:
     TriggerMode lastTriggerMode = TriggerMode::TRIGGERMODE_UNDEFINED;

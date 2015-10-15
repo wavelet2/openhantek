@@ -7,10 +7,15 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/")
-find_package(libusb REQUIRED)
+find_package(FFTW REQUIRED)
 
 file(GLOB_RECURSE SRC "*.cpp")
 file(GLOB_RECURSE HEADERS "*.h")
 add_library(${PROJECT_NAME} STATIC ${SRC} ${HEADERS})
-target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARIES} ${FFTW_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${FFTW_LIBRARIES})
+
+if (UNIX)
+    find_package(Threads REQUIRED)
+    target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
+endif()
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)

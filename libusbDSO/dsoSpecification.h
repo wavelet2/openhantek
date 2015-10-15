@@ -2,6 +2,8 @@
 
 /// \todo Make channels configurable
 
+#include <vector>
+
 namespace DSO {
     //////////////////////////////////////////////////////////////////////////////
     /// \struct ControlSamplerateLimits

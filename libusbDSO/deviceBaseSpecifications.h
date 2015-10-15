@@ -38,6 +38,8 @@ public:
     DeviceBaseSpecifications(const DSODeviceDescription& model);
     const DSODeviceDescription& getModel() const { return _model; }
 
+    unsigned getChannelCount();
+
 protected:
     /// The specifications of the device
     dsoSpecification _specification;

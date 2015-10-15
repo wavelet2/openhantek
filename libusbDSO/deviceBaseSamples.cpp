@@ -46,6 +46,16 @@ void DeviceBaseSamples::stopSampling() {
     _samplingStopped();
 }
 
+bool DeviceBaseSamples::toogleSampling() {
+    _sampling = !_sampling;
+    if (_sampling)
+        _samplingStarted();
+    else
+        _samplingStopped();
+
+    return _sampling;
+}
+
 std::vector<unsigned> *DeviceBaseSamples::getAvailableRecordLengths() {
     return &_settings.samplerate.limits->recordLengths;
 }

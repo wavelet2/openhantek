@@ -330,7 +330,7 @@ void HantekDevice::run() {
     }
 
     _device.disconnect();
-    _statusMessage(LIBUSB_ERROR_NO_DEVICE, 0);
+    _statusMessage(LIBUSB_ERROR_NO_DEVICE);
 }
 
 int HantekDevice::readCaptureState() {
@@ -400,7 +400,7 @@ int HantekDevice::readSamples(bool process) {
 }
 
 void HantekDevice::connectDevice() {
-    _statusMessage(_device.connect(), 0);
+    _statusMessage(_device.connect());
     if(!_device.isConnected())
             return;
 
@@ -498,7 +498,7 @@ void HantekDevice::connectDevice() {
 
         default:
             _device.disconnect();
-            _statusMessage(10000, 0);
+            _statusMessage(10000);
             return;
     }
 
@@ -604,7 +604,7 @@ void HantekDevice::connectDevice() {
                                        sizeof(offsetLimit), (int) VALUE_OFFSETLIMITS);
     if(errorCode < 0) {
         _device.disconnect();
-        _statusMessage(errorCode, 0);
+        _statusMessage(errorCode);
         return;
     }
 

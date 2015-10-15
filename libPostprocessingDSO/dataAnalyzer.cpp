@@ -30,10 +30,10 @@
 
 namespace DSOAnalyser {
 
-DataAnalyzer::DataAnalyzer(DSO::DeviceBase* device, OpenHantekSettingsScope *analyserSettings)
+DataAnalyzer::DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, OpenHantekSettingsScope *analyserSettings)
     : _analyserSettings(analyserSettings), _analyseIsRunning(false), _device(device) {
         // lock analyse thread mutex
-        _mutex.lock();
+        _incoming_data_wait_mutex.lock();
 
         // Connect to device
         using namespace std::placeholders;
@@ -52,21 +52,21 @@ DataAnalyzer::~DataAnalyzer() {
 /// \return Analyzed data as AnalyzedData struct.
 AnalyzedData const *DataAnalyzer::data(unsigned channel) const {
     if(channel >= this->analyzedData.size())
-        return 0;
+        return nullptr;
 
     return &this->analyzedData[channel];
 }
 
 /// \brief Returns the sample count of the analyzed data.
 /// \return The maximum sample count of the last analyzed data.
-unsigned DataAnalyzer::sampleCount() {
+unsigned DataAnalyzer::sampleCount() const {
     return _maxSamples;
 }
 
 /// \brief Returns the mutex for the data.
 /// \return Mutex for the analyzed data.
 std::mutex& DataAnalyzer::mutex() {
-    return _mutex;
+    return _data_in_use_mutex;
 }
 
 void DataAnalyzer::analyseSamples() {
@@ -109,19 +109,16 @@ void DataAnalyzer::analyseSamples() {
         }
 
 
-        unsigned size;
+        unsigned size = maxSamples;
+
+        // Physical channels
         if(channel < _analyserSettings->physicalChannels) {
             size = _incomingData.at(channel).size();
             if(_incoming_append)
                 size += channelData->samples.voltage.sample.size();
-            if(size > maxSamples)
-                maxSamples = size;
-        }
-        else
-            size = maxSamples;
 
-        // Physical channels
-        if(channel < _analyserSettings->physicalChannels) {
+            maxSamples = std::max(size, maxSamples);
+
             // Copy the buffer of the oscilloscope into the sample buffer
             if(_incoming_append)
                 channelData->samples.voltage.sample.insert(channelData->samples.voltage.sample.end(), _incomingData.at(channel).begin(), _incomingData.at(channel).end());
@@ -361,11 +358,13 @@ void DataAnalyzer::analyseThread() {
     double *window                = nullptr; ///< The array for the dft window factors
 
     while(1) {
-        _mutex.lock();
+        _incoming_data_wait_mutex.lock();
         _analyseIsRunning = true;
+        _data_in_use_mutex.lock();
         analyseSamples();
+        _data_in_use_mutex.unlock();
         computeFreqSpectrumPeak(lastRecordLength, lastWindow, window);
-        _analyzed(_maxSamples);
+        _analyzed();
         _analyseIsRunning = false;
 
         static unsigned long id = 0;
@@ -393,7 +392,7 @@ void DataAnalyzer::data_from_device(const std::vector<std::vector<double> > *dat
     mutex.unlock();
     _incoming_samplerate = samplerate;
     _incoming_append = append;
-    _mutex.unlock(); ///< New data arrived, unlock analyse thread
+    _incoming_data_wait_mutex.unlock(); ///< New data arrived, unlock analyse thread
 }
 
 }
