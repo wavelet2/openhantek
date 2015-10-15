@@ -1,5 +1,6 @@
-.bak
-.o
-.so
-.*~
+*.bak
+*.o
+*.so
+*.*~
+*.user
 build/
