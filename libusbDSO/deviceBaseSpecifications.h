@@ -35,10 +35,9 @@ namespace DSO {
 ///        specifications and information about the target device are here.
 class DeviceBaseSpecifications {
 public:
-    DeviceBaseSpecifications(const DSODeviceDescription& model);
+    DeviceBaseSpecifications(const DSODeviceDescription& model) : _model(model) {}
     const DSODeviceDescription& getModel() const { return _model; }
-
-    unsigned getChannelCount();
+    unsigned getChannelCount() const {return _specification.channels; }
 
 protected:
     /// The specifications of the device

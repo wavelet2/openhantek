@@ -1,8 +1,5 @@
 #pragma once
 
-#define HANTEK_CHANNELS               2 ///< Number of physical channels
-#define HANTEK_SPECIAL_CHANNELS       2 ///< Number of special channels
-
 namespace DSO {
         class ControlSamplerateLimits;
 
@@ -51,31 +48,31 @@ namespace DSO {
     struct dsoSettingsSamplerate {
         dsoSettingsSamplerateTarget target; ///< The target samplerate values
         ControlSamplerateLimits *limits; ///< The samplerate limits
-        unsigned int downsampler; ///< The variable downsampling factor
-        double current; ///< The current samplerate
+        unsigned int downsampler  = 1;   ///< The variable downsampling factor
+        double current            = 1e8; ///< The current samplerate
     };
 
     //////////////////////////////////////////////////////////////////////////////
     /// \struct dsoSettingsTrigger
     /// \brief Stores the current trigger settings of the device.
     struct dsoSettingsTrigger {
-        double level[HANTEK_CHANNELS]; ///< The trigger level for each channel in V
-        double position; ///< The current pretrigger position
-        unsigned int point; ///< The trigger position in Hantek coding
-        TriggerMode mode; ///< The trigger mode
-        Slope slope; ///< The trigger slope
-        bool special; ///< true, if the trigger source is special
-        unsigned int source; ///< The trigger source
+        std::vector<double> level;   ///< The trigger level for each channel in V
+        double position     = 0;     ///< The current pretrigger position
+        unsigned int point  = 0;     ///< The trigger position in Hantek coding
+        TriggerMode mode    = TriggerMode::TRIGGERMODE_NORMAL; ///< The trigger mode
+        Slope slope         = Slope::SLOPE_POSITIVE; ///< The trigger slope
+        bool special        = false; ///< true, if the trigger source is special
+        unsigned int source = 0;     ///< The trigger source
     };
 
     //////////////////////////////////////////////////////////////////////////////
     /// \struct dsoSettingsVoltage
     /// \brief Stores the current amplification settings of the device.
     struct dsoSettingsVoltage {
-        unsigned int gain; ///< The gain id
-        double offset; ///< The screen offset for each channel
-        double offsetReal; ///< The real offset for each channel (Due to quantization)
-        bool used; ///< true, if the channel is used
+        unsigned int gain = 0;   ///< The gain id
+        double offset     = 0.0; ///< The screen offset for each channel
+        double offsetReal = 0.0; ///< The real offset for each channel (Due to quantization)
+        bool used         = false;///< true, if the channel is used
     };
 
     //////////////////////////////////////////////////////////////////////////////
@@ -83,9 +80,9 @@ namespace DSO {
     /// \brief Stores the current settings of the device.
     struct dsoSettings {
         dsoSettingsSamplerate samplerate; ///< The samplerate settings
-        dsoSettingsVoltage voltage[HANTEK_CHANNELS]; ///< The amplification settings
+        std::vector<dsoSettingsVoltage> voltage; ///< The amplification settings
         dsoSettingsTrigger trigger; ///< The trigger settings
-        unsigned int recordLengthId; ///< The id in the record length array
-        unsigned short int usedChannels; ///< Number of activated channels
+        unsigned int recordLengthId     = 1; ///< The id in the record length array
+        unsigned short int usedChannels = 0; ///< Number of activated channels
     };
 }

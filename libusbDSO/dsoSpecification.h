@@ -21,6 +21,15 @@ namespace DSO {
     struct dsoSpecificationSamplerate {
         ControlSamplerateLimits single; ///< The limits for single channel mode
         ControlSamplerateLimits multi; ///< The limits for multi channel mode
+        dsoSpecificationSamplerate() {
+            // Use DSO-2090 specification as default
+            single.base = 50e6;
+            single.max = 50e6;
+            single.recordLengths.push_back(0);
+            multi.base = 100e6;
+            multi.max = 100e6;
+            multi.recordLengths.push_back(0);
+        }
     };
 
     //////////////////////////////////////////////////////////////////////////////
@@ -36,14 +45,14 @@ namespace DSO {
     /// \struct dsoSpecification
     /// \brief Stores the specifications of the currently connected device.
     struct dsoSpecification {
-        // Limits
         dsoSpecificationSamplerate samplerate; ///< The samplerate specifications
         std::vector<unsigned int> bufferDividers; ///< Samplerate dividers for record lengths
         std::vector<double> gainSteps; ///< Available voltage steps in V/screenheight
-        unsigned char sampleSize; ///< Number of bits per sample
+        unsigned char sampleSize  = 8; ///< Number of bits per sample. Default: 8bit ADC
 
-        const unsigned channels = HANTEK_CHANNELS;
-        std::vector<std::string> specialTriggerSources = {"EXT", "EXT/10"}; ///< Names of the special trigger sources
+        unsigned channels         = 0;
+        unsigned channels_special = 0;
+        std::vector<std::string> specialTriggerSources; ///< Names of the special trigger sources
 
         /// The index of the selected gain on the hardware
         std::vector<unsigned char> gainIndex;
@@ -52,8 +61,21 @@ namespace DSO {
         struct channelLimits {
             /// The sample values at the top of the screen
             std::vector<unsigned short int> voltage;
-            /// Calibration data for the channel offsets \todo Should probably be a vector too
-            unsigned short int offset[9][OFFSET_COUNT];
-        } limits[HANTEK_CHANNELS];
+
+            /// Calibration data for the channel offsets
+            typedef std::array<unsigned short int,OFFSET_COUNT> GainStep;
+            typedef std::array<GainStep, 9> Offsets;
+            Offsets offset;
+
+            channelLimits() {
+                for(GainStep& gainStep: offset) {
+                    gainStep[OFFSET_START] = 0x0000;
+                    gainStep[OFFSET_END] = 0xffff;
+                }
+            }
+        };
+        std::vector<channelLimits> limits;
+
+        dsoSpecification() {}
     };
 }

@@ -57,26 +57,26 @@ class DeviceBase : public DeviceBaseSamples {
         /// \brief Sets the gain for the given channel.
         /// \param channel The channel that should be set.
         /// \param gain The gain that should be met (V/div).
-        /// \return The gain that has been set, ::ErrorCode::ErrorCode on error.
-        virtual double setGain(unsigned int channel, double gain) = 0;
+        /// \return See ::ErrorCode::ErrorCode.
+        virtual ErrorCode setGain(unsigned int channel, double gain) = 0;
 
         /// \brief Set the offset for the given channel.
         /// \param channel The channel that should be set.
         /// \param offset The new offset value (0.0 - 1.0).
-        /// \return The offset that has been set, ::ErrorCode::ErrorCode on error.
-        virtual double setOffset(unsigned int channel, double offset) = 0;
+        /// \return See ::ErrorCode::ErrorCode.
+        virtual ErrorCode setOffset(unsigned int channel, double offset) = 0;
 
         /// \brief Set the trigger source.
         /// \param special true for a special channel (EXT, ...) as trigger source.
         /// \param id The number of the channel, that should be used as trigger.
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setTriggerSource(bool special, unsigned int id) = 0;
+        virtual ErrorCode setTriggerSource(bool special, unsigned int channel) = 0;
 
         /// \brief Set the trigger level.
         /// \param channel The channel that should be set.
         /// \param level The new trigger level (V).
-        /// \return The trigger level that has been set, ::ErrorCode::ErrorCode on error.
-        virtual double setTriggerLevel(unsigned int channel, double level) = 0;
+        /// \return See ::ErrorCode::ErrorCode.
+        virtual ErrorCode setTriggerLevel(unsigned int channel, double level) = 0;
 
         /// \brief Set the trigger slope.
         /// \param slope The Slope that should cause a trigger.
@@ -86,7 +86,7 @@ class DeviceBase : public DeviceBaseSamples {
         /// \brief Set the trigger position.
         /// \param position The new trigger position (in s).
         /// \return The trigger position that has been set.
-        virtual double setPretriggerPosition(double position) = 0;
+        virtual double updatePretriggerPosition(double position) = 0;
 
         /// \brief Forces a trigger
         /// \return The trigger position that has been set.
@@ -96,11 +96,22 @@ class DeviceBase : public DeviceBaseSamples {
         /// \return See ::ErrorCode::ErrorCode.
         ErrorCode setTriggerMode(TriggerMode mode);
 
-        /// \brief Calculates the trigger point from the CommandGetCaptureState data.
-        /// \param value The data value that contains the trigger point.
-        /// \return The calculated trigger point for the given data.
-        unsigned int calculateTriggerPoint(unsigned int value) const;
+        /// \brief Set the trigger mode.
+        /// \return True if a firmware upload is necessary. connectDevice() will fail if this
+        ///         method return true.
+        virtual bool needFirmware() = 0;
 
+        /// \brief Upload firmware to the DSO. If no firmware is required (needFirmware==false)
+        ///        this method will return ERROR_NONE. It can only be called if no connection
+        ///        to the device has been made so far (isDeviceConnected==false) otherwise returns
+        ///        ERROR_UNSUPPORTED. This method should be asynchron and should upload the firmware in another
+        ///        thread with a timeout of 60sec. It should report about the status via the
+        ///        _uploadProgress signal around every second.
+        /// \return See ::ErrorCode::ErrorCode.
+        virtual ErrorCode uploadFirmware() = 0;
+
+        /// \brief Return special trigger sources
+        /// \return Special trigger sources
         const std::vector<std::string>& getSpecialTriggerSources() const;
 
         /// \brief A unique id that is important for the DeviceList to identify already
@@ -126,11 +137,20 @@ class DeviceBase : public DeviceBaseSamples {
         std::function<void(void)> _deviceConnected = [](){};
         /// The oscilloscope device has been disconnected
         std::function<void(void)> _deviceDisconnected = [](){};
+        /// Upload progress. Parameter is progress in percentage: 100% == completed.
+        /// Sender is not in the main thread! If progress is < 0 then it represents an ::ErrorCode::ErrorCode.
+        /// Return true if you want to continue the upload, false if you want to abort it.
+        std::function<bool(int)> _uploadProgress = [](int){return true;};
         /// Status message about the oscilloscope (int messageID)
         std::function<void(int)> _statusMessage = [](int){};
 
 protected:
-    TriggerMode lastTriggerMode = TriggerMode::TRIGGERMODE_UNDEFINED;
+        TriggerMode lastTriggerMode = TriggerMode::TRIGGERMODE_UNDEFINED;
+
+        /// \brief Calculates the trigger point from the CommandGetCaptureState data.
+        /// \param value The data value that contains the trigger point.
+        /// \return The calculated trigger point for the given data.
+        unsigned int calculateTriggerPoint(unsigned int value) const;
 
 };
 

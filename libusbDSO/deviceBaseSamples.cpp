@@ -129,24 +129,20 @@ double DeviceBaseSamples::setRecordTime(double duration) {
 }
 
 
-unsigned int DeviceBaseSamples::getSampleCount(bool *fastRate) {
+unsigned int DeviceBaseSamples::getSampleCount(unsigned packetSize) {
     unsigned int totalSampleCount = _settings.samplerate.limits->recordLengths[_settings.recordLengthId];
     bool fastRateEnabled = _settings.samplerate.limits == &_specification.samplerate.multi;
 
     if(totalSampleCount == UINT_MAX) {
         // Roll mode
-        const int packetSize = getCommunicationPacketSize();
-        if(packetSize < 0)
-            totalSampleCount = UINT_MAX;
-        else
+        if(packetSize > 0)
             totalSampleCount = packetSize;
     }
     else {
         if(!fastRateEnabled)
             totalSampleCount *= _specification.channels;
     }
-    if(fastRate)
-        *fastRate = fastRateEnabled;
+
     return totalSampleCount;
 }
 
@@ -157,30 +153,27 @@ void DeviceBaseSamples::restoreTargets() {
         setRecordTime();
 }
 
-unsigned int DeviceBaseSamples::setRecordLength(unsigned int index) {
+void DeviceBaseSamples::setRecordLength(unsigned int index) {
     if(!updateRecordLength(index))
-        return 0;
+        return;
 
     restoreTargets();
-    setPretriggerPosition(_settings.trigger.position);
+    updatePretriggerPosition(_settings.trigger.position);
 
-    _recordLengthChanged(_settings.samplerate.limits->recordLengths[_settings.recordLengthId]);
-    return _settings.samplerate.limits->recordLengths[_settings.recordLengthId];
+    _recordLengthChanged(_settings.samplerate.limits->recordLengths, _settings.recordLengthId);
 }
 
-void DeviceBaseSamples::processSamples(unsigned char* data, int dataLength, unsigned totalSampleCount, bool fastRate) {
+void DeviceBaseSamples::processSamples(unsigned char* data, int dataLength, unsigned totalSampleCount) {
     unsigned int sampleCount = totalSampleCount;
-    if(!fastRate)
-        sampleCount /= _specification.channels;
 
     // How much data did we really receive?
     if(_specification.sampleSize > 8)
-        totalSampleCount = dataLength / 2;
+        totalSampleCount = dataLength / 2; // For 9bit-16bit Analog digital converters
     else
         totalSampleCount = dataLength;
 
     // Convert channel data
-    if(fastRate) {
+    if(isFastRate()) {
         // Fast rate mode, one channel is using all buffers
         sampleCount = totalSampleCount;
         unsigned channel = 0;

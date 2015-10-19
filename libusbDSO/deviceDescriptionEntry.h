@@ -38,8 +38,9 @@ namespace DSO {
         std::string modelName; ///< The official product name
         uint16_t    productID; ///< USB product ID
         uint16_t    vendorID;  ///< USB vendor ID
-        uint8_t     endpoint_out; ///< USB endpoint for writing
-        uint8_t     endpoint_in;  ///< USB endpoint for reading
+        uint8_t     bulk_endpoint_out; ///< USB endpoint for bulk writing
+        uint8_t     bulk_endpoint_in;  ///< USB endpoint for bulk reading
+        bool        need_firmware;///< Return true if the device needs firmware to operate
         /// Like the factory pattern. Create an instance of DeviceBase.
         std::function<DeviceBase*(libusb_device*, const DSODeviceDescription&)> createDevice;
     };

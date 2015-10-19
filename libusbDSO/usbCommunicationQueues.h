@@ -29,22 +29,31 @@
 #include "errorcodes.h"
 
 namespace DSO {
+class USBCommunication;
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief Part of the base class for an DSO device implementation. All command/bulk
-///        buffer related parts are implemented here. The actuall communication
-///        to the device is done in the final implementation class.
-class DeviceBaseCommands {
+/// \brief Part of the base class for an DSO device implementation. To implement
+/// thread safety, bulk and control "queues" are established. Those can be "filled"
+/// by any thread, and are send in the communication thread via sendCommands(device).
+/// Each "queue" entry has a pending flag. If that is set, the corresponding entry
+/// will be send.
+class CommunicationThreadQueues {
 public:
-    /// Pointers to bulk commands, ready to be transmitted
-    std::vector<std::unique_ptr<TransferBuffer>> _command;
-    /// true, when the command should be executed
-    std::vector<bool> _commandPending;
+    struct BulkCmdStr {
+        /// Pointers to bulk commands, ready to be transmitted
+        std::unique_ptr<TransferBuffer> cmd;
+        /// true, when the command should be executed
+        bool pending;
+    };
+
+    std::vector<BulkCmdStr> _bulkCommands;
 
     struct Control {
+        /// Pointers to control commands, ready to be transmitted
         std::unique_ptr<TransferBuffer> control;
         unsigned char controlCode;
-        bool controlPending;
+        /// true, when the command should be executed
+        bool pending;
     };
 
     std::vector<Control> _controlCommands;
@@ -62,6 +71,9 @@ public:
     /// \param command The command as string (Has to be parsed).
     /// \return See ::ErrorCode::ErrorCode.
     ErrorCode stringCommand(const std::string& command);
+
+    /// Send all pending bulk/control commands
+    bool sendPendingCommands(DSO::USBCommunication* device);
 };
 
 }

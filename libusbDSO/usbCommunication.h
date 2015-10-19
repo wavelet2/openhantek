@@ -36,18 +36,17 @@ namespace DSO {
 ///
 /// \brief This class handles the USB communication with the oscilloscope.
 class USBCommunication {
-    #define HANTEK_TIMEOUT              500 ///< Timeout for USB transfers in ms
-    #define HANTEK_TIMEOUT_MULTI         10 ///< Timeout for multi packet USB transfers in ms
-    #define HANTEK_ATTEMPTS               3 ///< The number of transfer attempts
-    #define HANTEK_ATTEMPTS_MULTI         1 ///< The number of multi packet transfer attempts
+    #define USB_COMM_TIMEOUT              500 ///< Timeout for USB transfers in ms
+    #define USB_COMM_TIMEOUT_MULTI         10 ///< Timeout for multi packet USB transfers in ms
+    #define USB_COMM_ATTEMPTS               3 ///< The number of transfer attempts
+    #define USB_COMM_ATTEMPTS_MULTI         1 ///< The number of multi packet transfer attempts
 
     public:
         /**
          * Create the USBCommunication object but will neither initiate a usb device connection nor initiate libusb.
          */
         USBCommunication(libusb_device *device,
-                         const DSODeviceDescription& model,
-                         std::function<void(void)> disconnected_signal);
+                         const DSODeviceDescription& model);
         ~USBCommunication();
 
         int connect();
@@ -55,21 +54,22 @@ class USBCommunication {
         bool isConnected() const;
 
         // Various methods to handle USB transfers
-        int bulkTransfer(unsigned char endpoint, unsigned char *data, unsigned int length, int attempts = HANTEK_ATTEMPTS, unsigned int timeout = HANTEK_TIMEOUT);
-        int bulkWrite(unsigned char *data, unsigned int length, int attempts = HANTEK_ATTEMPTS);
-        int bulkRead(unsigned char *data, unsigned int length, int attempts = HANTEK_ATTEMPTS);
+        int bulkTransfer(unsigned char endpoint, unsigned char *data, unsigned int length, int attempts = USB_COMM_ATTEMPTS, unsigned int timeout = USB_COMM_TIMEOUT);
+        int bulkWrite(unsigned char *data, unsigned int length);
+        int bulkRead(unsigned char *data, unsigned int length);
+        int bulkReadMulti(unsigned char *data, unsigned int length);
 
-        int bulkCommand(unsigned char *data, unsigned int length, int attempts = HANTEK_ATTEMPTS);
-        int bulkReadMulti(unsigned char *data, unsigned int length, int attempts = HANTEK_ATTEMPTS_MULTI);
-
-        int controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value, int index, int attempts = HANTEK_ATTEMPTS);
-        int controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0, int attempts = HANTEK_ATTEMPTS);
-        int controlRead(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0, int attempts = HANTEK_ATTEMPTS);
+        int controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value, int index);
+        int controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0);
+        int controlRead(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0);
 
         int getPacketSize() const;
+        const DSODeviceDescription& model() const;
 
         uint8_t getUniqueID();
-    protected:
+        void setDisconnected_signal(const std::function<void ()>& disconnected_signal);
+
+protected:
 
         /// The usb context used for this device
         libusb_context *context = 0;

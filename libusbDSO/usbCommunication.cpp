@@ -36,9 +36,8 @@ namespace DSO {
 ////////////////////////////////////////////////////////////////////////////////
 /// \brief Initializes the usb things and lists.
 /// \param parent The parent widget.
-USBCommunication::USBCommunication(libusb_device *device, const DSODeviceDescription& model,
-                                   std::function<void(void)> disconnected_signal)
-    : _device(device), _model(model), _disconnected_signal(disconnected_signal) {
+USBCommunication::USBCommunication(libusb_device *device, const DSODeviceDescription& model)
+    : _device(device), _model(model) {
 }
 
 /// \brief Disconnects the device.
@@ -48,6 +47,11 @@ USBCommunication::~USBCommunication() {
 
 uint8_t USBCommunication::getUniqueID() {
     return libusb_get_port_number(_device);
+}
+
+void USBCommunication::setDisconnected_signal(const std::function<void ()>& disconnected_signal)
+{
+    _disconnected_signal = disconnected_signal;
 }
 
 /// \brief Search for compatible devices.
@@ -72,7 +76,7 @@ int USBCommunication::connect() {
     for(int interfaceIndex = 0; interfaceIndex < (int) configDescriptor->bNumInterfaces; ++interfaceIndex) {
         interface = &configDescriptor->interface[interfaceIndex];
         if(interface->num_altsetting < 1)
-                continue;
+            continue;
 
         interfaceDescriptor = &interface->altsetting[0];
         if(interfaceDescriptor->bInterfaceClass != LIBUSB_CLASS_VENDOR_SPEC ||
@@ -80,6 +84,16 @@ int USBCommunication::connect() {
             interfaceDescriptor->bInterfaceProtocol != 0 ||
             interfaceDescriptor->bNumEndpoints != 2)
             continue;
+
+        // That's the interface we need, remove kernel driver
+        if(libusb_kernel_driver_active(handle, interfaceDescriptor->bInterfaceNumber) == 1) {
+            errorCode = libusb_detach_kernel_driver(handle, interfaceDescriptor->bInterfaceNumber);
+            if(errorCode != LIBUSB_SUCCESS)
+            {
+                libusb_close(handle);
+                return errorCode;
+            }
+        }
 
         // That's the interface we need, claim it
         errorCode = libusb_claim_interface(handle, interfaceDescriptor->bInterfaceNumber);
@@ -92,16 +106,18 @@ int USBCommunication::connect() {
 
         _interface = interfaceDescriptor->bInterfaceNumber;
 
-        // Check the maximum endpoint packet size
-        const libusb_endpoint_descriptor *endpointDescriptor;
-        outPacketLength = 0;
-        inPacketLength = 0;
-        for (int endpoint = 0; endpoint < interfaceDescriptor->bNumEndpoints; ++endpoint) {
-            endpointDescriptor = &(interfaceDescriptor->endpoint[endpoint]);
-            if(endpointDescriptor->bEndpointAddress == _model.endpoint_out) {
-                outPacketLength = endpointDescriptor->wMaxPacketSize;
-            } else if(endpointDescriptor->bEndpointAddress == _model.endpoint_in) {
-                inPacketLength = endpointDescriptor->wMaxPacketSize;
+        // Check the maximum endpoint packet size, if bulk transfers are required
+        if (_model.bulk_endpoint_out || _model.bulk_endpoint_in) {
+            const libusb_endpoint_descriptor *endpointDescriptor;
+            outPacketLength = 0;
+            inPacketLength = 0;
+            for (int endpoint = 0; endpoint < interfaceDescriptor->bNumEndpoints; ++endpoint) {
+                endpointDescriptor = &(interfaceDescriptor->endpoint[endpoint]);
+                if(endpointDescriptor->bEndpointAddress == _model.bulk_endpoint_out) {
+                    outPacketLength = endpointDescriptor->wMaxPacketSize;
+                } else if(endpointDescriptor->bEndpointAddress == _model.bulk_endpoint_in) {
+                    inPacketLength = endpointDescriptor->wMaxPacketSize;
+                }
             }
         }
         std::cout << "Connected device " << _model.modelName << std::endl;
@@ -118,8 +134,6 @@ int USBCommunication::connect() {
             _packetsizeCached = 64;
             break;
         case LIBUSB_SPEED_HIGH:
-            _packetsizeCached = 512;
-            break;
         case LIBUSB_SPEED_SUPER:
             _packetsizeCached = 512;
             break;
@@ -184,8 +198,8 @@ int USBCommunication::bulkTransfer(unsigned char endpoint, unsigned char *data, 
 /// \param length The length of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of sent bytes on success, libusb error code on error.
-int USBCommunication::bulkWrite(unsigned char *data, unsigned int length, int attempts) {
-    return bulkTransfer(_model.endpoint_out, data, length, attempts);
+int USBCommunication::bulkWrite(unsigned char *data, unsigned int length) {
+    return bulkTransfer(_model.bulk_endpoint_out, data, length, USB_COMM_ATTEMPTS);
 }
 
 /// \brief Bulk read from the oscilloscope.
@@ -193,16 +207,8 @@ int USBCommunication::bulkWrite(unsigned char *data, unsigned int length, int at
 /// \param length The length of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of received bytes on success, libusb error code on error.
-int USBCommunication::bulkRead(unsigned char *data, unsigned int length, int attempts) {
-    return bulkTransfer(_model.endpoint_in, data, length, attempts);
-}
-
-/// \brief Send a bulk command to the oscilloscope.
-/// \param command The command, that should be sent.
-/// \param attempts The number of attempts, that are done on timeouts.
-/// \return Number of sent bytes on success, libusb error code on error.
-int USBCommunication::bulkCommand(unsigned char *data, unsigned int length, int attempts) {
-    return bulkWrite(data, length, attempts);
+int USBCommunication::bulkRead(unsigned char *data, unsigned int length) {
+    return bulkTransfer(_model.bulk_endpoint_in, data, length, USB_COMM_ATTEMPTS);
 }
 
 /// \brief Multi packet bulk read from the oscilloscope.
@@ -210,19 +216,18 @@ int USBCommunication::bulkCommand(unsigned char *data, unsigned int length, int 
 /// \param length The length of data contained in the packets.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of received bytes on success, libusb error code on error.
-int USBCommunication::bulkReadMulti(unsigned char *data, unsigned int length, int attempts) {
-    int errorCode = inPacketLength;
-    unsigned int packet, received = 0;
-    for(packet = 0; received < length && errorCode == inPacketLength; ++packet) {
-        errorCode = bulkTransfer(_model.endpoint_in, data + packet * inPacketLength, std::min(length - received, (unsigned int) inPacketLength), attempts, HANTEK_TIMEOUT_MULTI);
-        if(errorCode > 0)
-            received += errorCode;
+int USBCommunication::bulkReadMulti(unsigned char *data, unsigned int length) {
+    unsigned received = 0;
+    while(received < length) {
+        unsigned read_size = std::min(length - received, (unsigned) inPacketLength);
+        int errorCode = bulkTransfer(_model.bulk_endpoint_in, data, read_size, USB_COMM_ATTEMPTS_MULTI, USB_COMM_TIMEOUT_MULTI);
+        if(errorCode <= 0)
+            return errorCode;
+        data += read_size;
+        received += errorCode;
     }
 
-    if(received > 0)
-        return received;
-    else
-        return errorCode;
+    return received;
 }
 
 /// \brief Control transfer to the oscilloscope.
@@ -234,13 +239,14 @@ int USBCommunication::bulkReadMulti(unsigned char *data, unsigned int length, in
 /// \param index The index field of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of transferred bytes on success, libusb error code on error.
-int USBCommunication::controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value, int index, int attempts) {
+int USBCommunication::controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value, int index) {
     if(!handle)
         return LIBUSB_ERROR_NO_DEVICE;
 
+    int attempts = USB_COMM_ATTEMPTS;
     int errorCode = LIBUSB_ERROR_TIMEOUT;
     for(int attempt = 0; (attempt < attempts || attempts == -1) && errorCode == LIBUSB_ERROR_TIMEOUT; ++attempt)
-        errorCode = libusb_control_transfer(handle, type, request, value, index, data, length, HANTEK_TIMEOUT);
+        errorCode = libusb_control_transfer(handle, type, request, value, index, data, length, USB_COMM_TIMEOUT);
 
     if(errorCode == LIBUSB_ERROR_NO_DEVICE)
         disconnect();
@@ -255,8 +261,8 @@ int USBCommunication::controlTransfer(unsigned char type, unsigned char request,
 /// \param index The index field of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of sent bytes on success, libusb error code on error.
-int USBCommunication::controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value, int index, int attempts) {
-    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, request,  data, length, value, index, attempts);
+int USBCommunication::controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value, int index) {
+    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, request,  data, length, value, index);
 }
 
 /// \brief Control read to the oscilloscope.
@@ -267,8 +273,8 @@ int USBCommunication::controlWrite(unsigned char request, unsigned char *data, u
 /// \param index The index field of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of received bytes on success, libusb error code on error.
-int USBCommunication::controlRead(unsigned char request, unsigned char *data, unsigned int length, int value, int index, int attempts) {
-    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, request, data, length, value, index, attempts);
+int USBCommunication::controlRead(unsigned char request, unsigned char *data, unsigned int length, int value, int index) {
+    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, request, data, length, value, index);
 }
 
 /// \brief Gets the maximum size of one packet transmitted via bulk transfer.
@@ -276,5 +282,7 @@ int USBCommunication::controlRead(unsigned char request, unsigned char *data, un
 int USBCommunication::getPacketSize() const {
     return _packetsizeCached;
 }
+
+const DSODeviceDescription& USBCommunication::model() const { return _model; }
 
 }

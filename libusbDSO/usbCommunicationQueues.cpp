@@ -26,12 +26,18 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
-#include "utils/stdStringSplit.h"
 
-#include "deviceBaseCommands.h"
+
+#include <libusb-1.0/libusb.h>
+#include "usbCommunication.h"
+
+#include "utils/stdStringSplit.h"
+#include "utils/timestampDebug.h"
+
+#include "usbCommunicationQueues.h"
 
 namespace DSO {
-    ErrorCode DeviceBaseCommands::stringCommand(const std::string& command) {
+    ErrorCode CommunicationThreadQueues::stringCommand(const std::string& command) {
         std::vector<std::string> commandParts = split(command, " ");
 
         if(commandParts.size() < 1)
@@ -49,12 +55,12 @@ namespace DSO {
 
             // Read command code (First byte)
             hexParse(commandParts[2], &commandCode, 1);
-            if(commandCode > _command.size())
+            if(commandCode > _bulkCommands.size())
                 return ErrorCode::ERROR_UNSUPPORTED;
 
             // Update bulk command and mark as pending
-            hexParse(data, _command[commandCode]->data(), _command[commandCode]->size());
-            _commandPending[commandCode] = true;
+            hexParse(data, _bulkCommands[commandCode].cmd->data(), _bulkCommands[commandCode].cmd->size());
+            _bulkCommands[commandCode].pending = true;
             return ErrorCode::ERROR_NONE;
         }
         else if(commandParts[1] == "control") {
@@ -74,10 +80,56 @@ namespace DSO {
 
             // Update control command and mark as pending
             hexParse(data, _controlCommands[control].control->data(), _controlCommands[control].control->size());
-            _controlCommands[control].controlPending = true;
+            _controlCommands[control].pending = true;
             return ErrorCode::ERROR_NONE;
         }
 
         return ErrorCode::ERROR_UNSUPPORTED;
     }
+
+    bool CommunicationThreadQueues::sendPendingCommands(USBCommunication* device) {
+        int errorCode = 0;
+
+        for(BulkCmdStr& cmd: _bulkCommands) {
+            if(!cmd.pending)
+                continue;
+
+            timestampDebug("Sending bulk command: " << hexDump(cmd.cmd->data(), cmd.cmd->size()));
+
+            errorCode = device->bulkWrite(cmd.cmd.get()->data(), cmd.cmd.get()->size());
+            if(errorCode < 0) {
+                std::cerr << "Sending bulk command %02x failed: " << " " <<
+                libusb_error_name((libusb_error)errorCode) << " " <<
+                    libusb_strerror((libusb_error)errorCode) << std::endl;
+
+                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
+                    return false;
+            }
+            else
+                cmd.pending = false;
+        }
+
+        errorCode = 0;
+
+        for(Control& control: _controlCommands) {
+            if(!control.pending)
+                continue;
+
+            timestampDebug("Sending control command " << control.controlCode << " " << hexDump(control.control->data(), control.control->size()));
+
+            errorCode = device->controlWrite(control.controlCode, control.control->data(), control.control->size());
+            if(errorCode < 0) {
+                std::cerr << "Sending control command failed: " << control.controlCode << " " <<
+                    libusb_error_name((libusb_error)errorCode) << " " <<
+                    libusb_strerror((libusb_error)errorCode) << std::endl;
+
+                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
+                    return false;
+            }
+            else
+                control.pending = false;
+        }
+        return true;
+    }
+
 }
