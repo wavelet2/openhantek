@@ -34,15 +34,6 @@
 /// \brief All %Hantek DSO device specific things.
 namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
-    /// \struct dsoSpecificationCommands
-    /// \brief Stores the command codes used for this device.
-    struct dsoSpecificationCommands {
-        dsoSpecificationCommandsBulk bulk; ///< The used bulk commands
-        dsoSpecificationCommandsControl control; ///< The used control commands
-        dsoSpecificationCommandsValues values; ///< The used control values
-    };
-
-    //////////////////////////////////////////////////////////////////////////////
     /// \enum UsedChannels
     /// \brief The enabled channels.
     enum UsedChannels {

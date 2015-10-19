@@ -7,7 +7,7 @@ namespace Hantek {
     /// \enum ControlCode                                           hantek/types.h
     /// \brief All supported control commands.
     enum ControlCode {
-                CONTROL_UNDEFINED = -1,
+        CONTROL_UNDEFINED = -1,
         /// <em>[::MODEL_DSO2090, ::MODEL_DSO2150, ::MODEL_DSO2250, ::MODEL_DSO5200, ::MODEL_DSO5200A]</em>
         /// <p>
         ///   The 0xa2 control read/write command gives access to a ::ControlValue.
@@ -133,7 +133,7 @@ namespace Hantek {
     /// \enum ControlValue                                          hantek/types.h
     /// \brief All supported values for control commands.
     enum ControlValue {
-                VALUE_UNDEFINED = -1,
+        VALUE_UNDEFINED = -1,
         /// <em>[::MODEL_DSO2090, ::MODEL_DSO2150, ::MODEL_DSO2250, ::MODEL_DSO5200, ::MODEL_DSO5200A]</em>
         /// <p>
         /// Value 0x08 is the calibration data for the channels offsets. It holds the offset value for the top and bottom of the scope screen for every gain step on every channel. The data is stored as a three-dimensional array:<br />
@@ -165,38 +165,21 @@ namespace Hantek {
     };
 
     //////////////////////////////////////////////////////////////////////////////
-    /// \struct dsoSpecificationCommandsControl
-    /// \brief Stores the control command codes used for this device.
-    struct dsoSpecificationCommandsControl {
-        ControlCode setOffset = CONTROL_UNDEFINED; ///< Command for setting offset calibration data
-        ControlCode setRelays = CONTROL_UNDEFINED; ///< Command for setting gain relays (Usually in combination with BULK_SETGAIN)
-    };
-
-    //////////////////////////////////////////////////////////////////////////////
-    /// \struct dsoSpecificationCommandsValues
-    /// \brief Stores the control value codes used for this device.
-    struct dsoSpecificationCommandsValues {
-        ControlValue offsetLimits  = VALUE_UNDEFINED; ///< Code for channel offset limits
-        ControlValue voltageLimits = VALUE_UNDEFINED; ///< Code for voltage limits
-    };
-
-    //////////////////////////////////////////////////////////////////////////////
-    /// \enum BulkIndex
-    /// \brief Can be set by CONTROL_BEGINCOMMAND, maybe it allows multiple commands at the same time?
-    enum BulkIndex {
-        COMMANDINDEX_0 = 0x03, ///< Used most of the time
-        COMMANDINDEX_1 = 0x0a,
-        COMMANDINDEX_2 = 0x09,
-        COMMANDINDEX_3 = 0x01, ///< Used for ::BULK_SETTRIGGERANDSAMPLERATE sometimes
-        COMMANDINDEX_4 = 0x02,
-        COMMANDINDEX_5 = 0x08
-    };
-
-    //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The CONTROL_BEGINCOMMAND builder.
     class ControlBeginCommand : public TransferBuffer {
         public:
+            //////////////////////////////////////////////////////////////////////////////
+            /// \enum BulkIndex
+            /// \brief Can be set by CONTROL_BEGINCOMMAND, maybe it allows multiple commands at the same time?
+            enum BulkIndex {
+                COMMANDINDEX_0 = 0x03, ///< Used most of the time
+                COMMANDINDEX_1 = 0x0a,
+                COMMANDINDEX_2 = 0x09,
+                COMMANDINDEX_3 = 0x01, ///< Used for ::BULK_SETTRIGGERANDSAMPLERATE sometimes
+                COMMANDINDEX_4 = 0x02,
+                COMMANDINDEX_5 = 0x08
+            };
             ControlBeginCommand(BulkIndex index = COMMANDINDEX_0);
 
             BulkIndex getIndex();

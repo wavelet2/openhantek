@@ -434,18 +434,6 @@ namespace Hantek {
     };
 
     //////////////////////////////////////////////////////////////////////////////
-    /// \struct dsoSpecificationCommandsBulk
-    /// \brief Stores the bulk command codes used for this device.
-    struct dsoSpecificationCommandsBulk {
-        BulkCode setChannels   = BULK_UNDEFINED; ///< Command for setting used channels
-        BulkCode setSamplerate = BULK_UNDEFINED; ///< Command for samplerate settings
-        BulkCode setGain       = BULK_UNDEFINED; ///< Command for gain settings (Usually in combination with CONTROL_SETRELAYS)
-        BulkCode setRecordLength= BULK_UNDEFINED;///< Command for buffer settings
-        BulkCode setTrigger    = BULK_UNDEFINED; ///< Command for trigger settings
-        BulkCode setPretrigger = BULK_UNDEFINED; ///< Command for pretrigger settings
-    };
-    
-    //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_SETFILTER builder.
     class BulkSetFilter : public TransferBuffer {

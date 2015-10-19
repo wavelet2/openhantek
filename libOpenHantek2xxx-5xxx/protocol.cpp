@@ -842,7 +842,7 @@ namespace Hantek {
     // class ControlBeginCommand
     /// \brief Sets the command index to the given value.
     /// \param index The CommandIndex for the command.
-    ControlBeginCommand::ControlBeginCommand(BulkIndex index) : TransferBuffer(10) {
+    ControlBeginCommand::ControlBeginCommand(ControlBeginCommand::BulkIndex index) : TransferBuffer(10) {
         this->init();
 
         this->setIndex(index);
@@ -850,7 +850,7 @@ namespace Hantek {
 
     /// \brief Gets the command index.
     /// \return The CommandIndex for the command.
-    BulkIndex ControlBeginCommand::getIndex() {
+    ControlBeginCommand::BulkIndex ControlBeginCommand::getIndex() {
         return (BulkIndex) this->array[1];
     }
 

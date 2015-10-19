@@ -33,6 +33,8 @@
 
 #include <libusb-1.0/libusb.h>
 
+#include "protocol.h"
+#include "utils/containerStream.h"
 #include "hantekDevice.h"
 #include "protocol.h"
 #include "utils/timestampDebug.h"
@@ -44,81 +46,40 @@ std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned c
 std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x);
 std::vector<double>& operator<<(std::vector<double>& v, double x);
 
-
-/// \brief Initializes the command buffers and lists.
-/// \param parent The parent widget.
-HantekDevice::HantekDevice(libusb_device *device, const DSO::DSODeviceDescription& model)
-    : DeviceBase(model), _device(device, model, std::bind( &HantekDevice::deviceDisconnected, this)) {
+HantekDevice::HantekDevice(std::unique_ptr<DSO::USBCommunication> device)
+    : DeviceBase(device->model()), _device(std::move(device)) {
+    _device->setDisconnected_signal(std::bind( &HantekDevice::deviceDisconnected, this));
 }
 
-/// \brief Disconnects the device.
 HantekDevice::~HantekDevice() {
-    _device.disconnect();
+    _device->disconnect();
 }
 
 unsigned HantekDevice::getUniqueID() {
-    return _device.getUniqueID();
+    return _device->getUniqueID();
+}
+
+bool HantekDevice::needFirmware() {
+    return false;
+}
+
+ErrorCode HantekDevice::uploadFirmware() {
+    //TODO: Store firmware files together with the software
+    return ErrorCode::ERROR_NONE;
 }
 
 void HantekDevice::deviceDisconnected() {
+    if (!_thread.get()) return;
     if (_thread->joinable()) _thread->join();
     _thread.reset();
 }
 
 void HantekDevice::disconnectDevice() {
-    _device.disconnect();
+    _device->disconnect();
 }
 
 bool HantekDevice::isDeviceConnected() {
-    return _device.isConnected();
-}
-
-bool HantekDevice::sendPendingBulkCommands() {
-    int errorCode = 0;
-
-    for(int index = 0; index < BULK_COUNT; ++index) {
-        if(!_commandPending[index])
-            continue;
-
-        timestampDebug("Sending bulk command: " << hexDump(_command[index]->data(), _command[index]->size()));
-
-        errorCode = bulkCommand(_command[index].get());
-        if(errorCode < 0) {
-            std::cerr << "Sending bulk command %02x failed: " << index << " " <<
-            libusb_error_name((libusb_error)errorCode) << " " <<
-                libusb_strerror((libusb_error)errorCode) << std::endl;
-
-            if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                return false;
-        }
-        else
-            _commandPending[index] = false;
-    }
-    return true;
-}
-
-bool HantekDevice::sendPendingControlCommands() {
-    int errorCode = 0;
-
-    for(Control& control: _controlCommands) {
-        if(!control.controlPending)
-            continue;
-
-        timestampDebug("Sending control command " << control.controlCode << " " << hexDump(control.control->data(), control.control->size()));
-
-        errorCode = _device.controlWrite(control.controlCode, control.control->data(), control.control->size());
-        if(errorCode < 0) {
-            std::cerr << "Sending control command failed: " << control.controlCode << " " <<
-                libusb_error_name((libusb_error)errorCode) << " " <<
-                libusb_strerror((libusb_error)errorCode) << std::endl;
-
-            if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                return false;
-        }
-        else
-            control.controlPending = false;
-    }
-    return true;
+    return _device->isConnected();
 }
 
 bool HantekDevice::runRollmode(RollState& rollState, int& samplingStarted) {
@@ -134,9 +95,9 @@ bool HantekDevice::runRollmode(RollState& rollState, int& samplingStarted) {
             }
 
             // Sampling hasn't started, update the expected sample count
-            _previousSampleCount = getSampleCount();
+            _previousSampleCount = getSampleCount(_device->getPacketSize());
 
-            errorCode = bulkCommand(_command[BULK_STARTSAMPLING].get());
+            errorCode = bulkCommand(_bulkCommands[BULK_STARTSAMPLING].cmd.get());
             if(errorCode < 0) {
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
@@ -147,7 +108,7 @@ bool HantekDevice::runRollmode(RollState& rollState, int& samplingStarted) {
             samplingStarted = true;
             break;
         case RollState::ROLL_ENABLETRIGGER:
-            errorCode = bulkCommand(_command[BULK_ENABLETRIGGER].get());
+            errorCode = bulkCommand(_bulkCommands[BULK_ENABLETRIGGER].cmd.get());
             if(errorCode < 0) {
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
@@ -156,7 +117,7 @@ bool HantekDevice::runRollmode(RollState& rollState, int& samplingStarted) {
             timestampDebug("Enabling trigger");
             break;
         case RollState::ROLL_FORCETRIGGER:
-            errorCode = bulkCommand(_command[BULK_FORCETRIGGER].get());
+            errorCode = bulkCommand(_bulkCommands[BULK_FORCETRIGGER].cmd.get());
             if(errorCode < 0) {
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
@@ -236,14 +197,14 @@ bool HantekDevice::runStandardMode(CaptureState& captureState, int& cycleCounter
 
         case CAPTURE_WAITING:
             // Sampling hasn't started, update the expected sample count
-            _previousSampleCount = getSampleCount();
+            _previousSampleCount = getSampleCount(_device->getPacketSize());
 
             if(samplingStarted && lastTriggerMode == _settings.trigger.mode) {
                 ++cycleCounter;
 
                 if(cycleCounter == startCycle && !isRollingMode()) {
                     // Buffer refilled completely since start of sampling, enable the trigger now
-                    errorCode = bulkCommand(_command[BULK_ENABLETRIGGER].get());
+                    errorCode = bulkCommand(_bulkCommands[BULK_ENABLETRIGGER].cmd.get());
                     if(errorCode < 0) {
                         if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                             return false;
@@ -255,7 +216,7 @@ bool HantekDevice::runStandardMode(CaptureState& captureState, int& cycleCounter
                 }
                 else if(cycleCounter >= 8 + startCycle && _settings.trigger.mode == DSO::TriggerMode::TRIGGERMODE_AUTO) {
                     // Force triggering
-                    errorCode = bulkCommand(_command[BULK_FORCETRIGGER].get());
+                    errorCode = bulkCommand(_bulkCommands[BULK_FORCETRIGGER].cmd.get());
                     if(errorCode < 0) {
                         if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                             return false;
@@ -269,7 +230,7 @@ bool HantekDevice::runStandardMode(CaptureState& captureState, int& cycleCounter
             }
 
             // Start capturing
-            errorCode = bulkCommand(_command[BULK_STARTSAMPLING].get());
+            errorCode = bulkCommand(_bulkCommands[BULK_STARTSAMPLING].cmd.get());
             if(errorCode < 0) {
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
@@ -302,15 +263,14 @@ void HantekDevice::run() {
     int startCycle            = 0;
 
     while (1) {
-        if (!sendPendingBulkCommands()) break;
-        if (!sendPendingControlCommands()) break;
+        if (!sendPendingCommands(_device.get())) break;
 
         // Compute sleep time
         int cycleTime;
 
         // Check the current oscilloscope state everytime 25% of the time the buffer should be refilled
         if(isRollingMode())
-            cycleTime = (int) ((double) _device.getPacketSize() / ((_settings.samplerate.limits == &_specification.samplerate.multi) ? 1 : _specification.channels) / _settings.samplerate.current * 250);
+            cycleTime = (int) ((double) _device->getPacketSize() / ((_settings.samplerate.limits == &_specification.samplerate.multi) ? 1 : _specification.channels) / _settings.samplerate.current * 250);
         else
             cycleTime = (int) ((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current * 250);
 
@@ -329,19 +289,19 @@ void HantekDevice::run() {
         std::this_thread::sleep_for(std::chrono::milliseconds(cycleTime));
     }
 
-    _device.disconnect();
+    _device->disconnect();
     _statusMessage(LIBUSB_ERROR_NO_DEVICE);
 }
 
 int HantekDevice::readCaptureState() {
     int errorCode;
 
-    errorCode = bulkCommand(_command[BULK_GETCAPTURESTATE].get());
+    errorCode = bulkCommand(_bulkCommands[BULK_GETCAPTURESTATE].cmd.get());
     if(errorCode < 0)
         return errorCode;
 
     BulkResponseGetCaptureState response;
-    errorCode = _device.bulkRead(response.data(), response.size());
+    errorCode = _device->bulkRead(response.data(), response.size());
     if(errorCode < 0)
         return errorCode;
 
@@ -354,33 +314,31 @@ int HantekDevice::readSamples(bool process) {
     int errorCode;
 
     // Request data
-    errorCode = bulkCommand(_command[BULK_GETDATA].get());
+    errorCode = bulkCommand(_bulkCommands[BULK_GETDATA].cmd.get());
     if(errorCode < 0)
         return errorCode;
 
     // Save raw data to temporary buffer
-    bool fastRate = false;
-    unsigned int totalSampleCount = getSampleCount(&fastRate);
+    unsigned int totalSampleCount = getSampleCount(_device->getPacketSize());
     if(totalSampleCount == UINT_MAX)
         return LIBUSB_ERROR_INVALID_PARAM;
 
-    // To make sure no samples will remain in the scope buffer, also check the sample count before the last sampling started
-    if(totalSampleCount < _previousSampleCount) {
-        unsigned int currentSampleCount = totalSampleCount;
-        totalSampleCount = _previousSampleCount;
-        _previousSampleCount = currentSampleCount; // Using sampleCount as temporary buffer since it was set to totalSampleCount
-    }
-    else {
+    // To make sure no samples will remain in the scope buffer,
+    // also check the sample count before the last sampling started
+    if(totalSampleCount < _previousSampleCount)
+        std::swap(_previousSampleCount,totalSampleCount);
+    else
         _previousSampleCount = totalSampleCount;
-    }
 
     unsigned int dataLength = totalSampleCount;
-    if(_specification.sampleSize > 8)
-        dataLength *= 2;
+    if(_specification.sampleSize > 8) // for ADCs with resolution of 9bit..16bit
+        dataLength *= 2;              // we need two bytes for the transfer
 
+    /// \todo We grow the stack by multiple kilobytes to megabytes each sample iteration.
+    /// Should we allocate the buffer beforehand?
     unsigned char data[dataLength];
 
-    errorCode = _device.bulkReadMulti(data, dataLength);
+    errorCode = _device->bulkReadMulti(data, dataLength);
     if(errorCode < 0)
             return errorCode;
     dataLength = errorCode; // actual data read
@@ -388,7 +346,7 @@ int HantekDevice::readSamples(bool process) {
     // Process the data only if we want it
     if(process) {
         _samplesMutex.lock();
-        processSamples(data, dataLength, totalSampleCount, fastRate);
+        processSamples(data, dataLength, totalSampleCount);
         _samplesMutex.unlock();
         _samplesAvailable(&_samples,
                             _settings.samplerate.current,
@@ -400,41 +358,25 @@ int HantekDevice::readSamples(bool process) {
 }
 
 void HantekDevice::connectDevice() {
-    _statusMessage(_device.connect());
-    if(!_device.isConnected())
+    if (_model.need_firmware) return;
+
+    _statusMessage(_device->connect());
+    if(!_device->isConnected())
             return;
 
-    // Instantiate bulk command later, some are not the same for all models
-    _command.resize(BULK_COUNT);
-    _commandPending.resize(BULK_COUNT);
-    for(int index = 0; index < BULK_COUNT; ++index) {
-        _command[index].reset();
-        _commandPending[index] = false;
-    }
+    _bulkCommands.clear();
+    _bulkCommands.resize(BULK_COUNT);
+    _bulkCommands[BULK_FORCETRIGGER].cmd.reset(new BulkForceTrigger());
+    _bulkCommands[BULK_STARTSAMPLING].cmd.reset(new BulkCaptureStart());
+    _bulkCommands[BULK_ENABLETRIGGER].cmd.reset(new BulkTriggerEnabled());
+    _bulkCommands[BULK_GETDATA].cmd.reset(new BulkGetData());
+    _bulkCommands[BULK_GETCAPTURESTATE].cmd.reset(new BulkGetCaptureState());
+    _bulkCommands[BULK_SETGAIN].cmd.reset(new BulkSetGain());
 
     _controlCommands.clear();
     _controlCommands.resize(CONTROLINDEX_COUNT);
     _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetOffset()), CONTROL_SETOFFSET, false});
     _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetRelays()), CONTROL_SETRELAYS, false});
-
-    // Instantiate the _commands needed for all models
-    _command[BULK_FORCETRIGGER].reset(new BulkForceTrigger());
-    _command[BULK_STARTSAMPLING].reset(new BulkCaptureStart());
-    _command[BULK_ENABLETRIGGER].reset(new BulkTriggerEnabled());
-    _command[BULK_GETDATA].reset(new BulkGetData());
-    _command[BULK_GETCAPTURESTATE].reset(new BulkGetCaptureState());
-    _command[BULK_SETGAIN].reset(new BulkSetGain());
-    // Initialize the _command versions to the ones used on the DSO-2090
-    specificationCommands.bulk.setRecordLength = (BulkCode) -1;
-    specificationCommands.bulk.setChannels = (BulkCode) -1;
-    specificationCommands.bulk.setGain = BULK_SETGAIN;
-    specificationCommands.bulk.setSamplerate = (BulkCode) -1;
-    specificationCommands.bulk.setTrigger = (BulkCode) -1;
-    specificationCommands.bulk.setPretrigger = (BulkCode) -1;
-    specificationCommands.control.setOffset = CONTROL_SETOFFSET;
-    specificationCommands.control.setRelays = CONTROL_SETRELAYS;
-    specificationCommands.values.offsetLimits = VALUE_OFFSETLIMITS;
-    specificationCommands.values.voltageLimits = (ControlValue) -1;
 
     // Determine the _command version we need for this model
     bool unsupported = false;
@@ -443,61 +385,41 @@ void HantekDevice::connectDevice() {
             unsupported = true;
 
         case 0x2090:
-            // Instantiate additional _commands for the DSO-2090
-            _command[BULK_SETTRIGGERANDSAMPLERATE].reset(new BulkSetTriggerAndSamplerate());
-            specificationCommands.bulk.setRecordLength = BULK_SETTRIGGERANDSAMPLERATE;
-            specificationCommands.bulk.setChannels = BULK_SETTRIGGERANDSAMPLERATE;
-            specificationCommands.bulk.setSamplerate = BULK_SETTRIGGERANDSAMPLERATE;
-            specificationCommands.bulk.setTrigger = BULK_SETTRIGGERANDSAMPLERATE;
-            specificationCommands.bulk.setPretrigger = BULK_SETTRIGGERANDSAMPLERATE;
-            // Initialize those as pending
-            _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+            // Instantiate additional _commands for the DSO-2090. Initialize those as pending
+            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.reset(new BulkSetTriggerAndSamplerate());
+            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
             break;
 
         case 0x2250:
-            // Instantiate additional _commands for the DSO-2250
-            _command[BULK_BSETCHANNELS].reset(new BulkSetChannels2250());
-            _command[BULK_CSETTRIGGERORSAMPLERATE].reset(new BulkSetTrigger2250());
-            _command[BULK_DSETBUFFER].reset(new BulkSetRecordLength2250());
-            _command[BULK_ESETTRIGGERORSAMPLERATE].reset(new BulkSetSamplerate2250());
-            _command[BULK_FSETBUFFER].reset(new BulkSetBuffer2250());
-            specificationCommands.bulk.setRecordLength = BULK_DSETBUFFER;
-            specificationCommands.bulk.setChannels = BULK_BSETCHANNELS;
-            specificationCommands.bulk.setSamplerate = BULK_ESETTRIGGERORSAMPLERATE;
-            specificationCommands.bulk.setTrigger = BULK_CSETTRIGGERORSAMPLERATE;
-            specificationCommands.bulk.setPretrigger = BULK_FSETBUFFER;
-
-            _commandPending[BULK_BSETCHANNELS] = true;
-            _commandPending[BULK_CSETTRIGGERORSAMPLERATE] = true;
-            _commandPending[BULK_DSETBUFFER] = true;
-            _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
-            _commandPending[BULK_FSETBUFFER] = true;
-
+            // Instantiate additional _commands for the DSO-2250. Initialize those as pending
+            _bulkCommands[BULK_BSETCHANNELS].cmd.reset(new BulkSetChannels2250());
+            _bulkCommands[BULK_BSETCHANNELS].pending = true;
+            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetTrigger2250());
+            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
+            _bulkCommands[BULK_DSETBUFFER].cmd.reset(new BulkSetRecordLength2250());
+            _bulkCommands[BULK_DSETBUFFER].pending = true;
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetSamplerate2250());
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
+            _bulkCommands[BULK_FSETBUFFER].cmd.reset(new BulkSetBuffer2250());
+            _bulkCommands[BULK_FSETBUFFER].pending = true;
             break;
 
         case 0x520A:
             unsupported = true;
 
         case 0x5200:
-            // Instantiate additional _commands for the DSO-5200
-            _command[BULK_CSETTRIGGERORSAMPLERATE].reset(new BulkSetSamplerate5200());
-            _command[BULK_DSETBUFFER].reset(new BulkSetBuffer5200());
-            _command[BULK_ESETTRIGGERORSAMPLERATE].reset(new BulkSetTrigger5200());
-            specificationCommands.bulk.setRecordLength = BULK_DSETBUFFER;
-            specificationCommands.bulk.setChannels = BULK_ESETTRIGGERORSAMPLERATE;
-            specificationCommands.bulk.setSamplerate = BULK_CSETTRIGGERORSAMPLERATE;
-            specificationCommands.bulk.setTrigger = BULK_ESETTRIGGERORSAMPLERATE;
-            specificationCommands.bulk.setPretrigger = BULK_ESETTRIGGERORSAMPLERATE;
-            //command.values.voltageLimits = VALUE_ETSCORRECTION;
-
-            _commandPending[BULK_CSETTRIGGERORSAMPLERATE] = true;
-            _commandPending[BULK_DSETBUFFER] = true;
-            _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+            // Instantiate additional _commands for the DSO-5200. Initialize those as pending
+            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetSamplerate5200());
+            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
+            _bulkCommands[BULK_DSETBUFFER].cmd.reset(new BulkSetBuffer5200());
+            _bulkCommands[BULK_DSETBUFFER].pending = true;
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetTrigger5200());
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
 
             break;
 
         default:
-            _device.disconnect();
+            _device->disconnect();
             _statusMessage(10000);
             return;
     }
@@ -506,15 +428,25 @@ void HantekDevice::connectDevice() {
         std::cerr <<"Warning: This Hantek DSO model isn't supported officially, so it may not be working as expected. Reports about your experiences are very welcome though (Please open a feature request in the tracker at http://www.github.com/openhantek/openhantek). If it's working perfectly this warning can be removed, if not it should be possible to get it working with your help soon." << std::endl;
 
     for(Control& control: _controlCommands)
-        control.controlPending = true;
+        control.pending = true;
 
     // Maximum possible samplerate for a single channel and dividers for record lengths
+    _specification.channels         = 2;
+    _specification.channels_special = 2;
+    _settings.samplerate.limits = &(_specification.samplerate.single);
+
+    _specification.limits.resize(_specification.channels);
+    _specification.gainSteps.clear();
+    _settings.voltage.resize(_specification.channels);
+    _settings.trigger.level.resize(_specification.channels);
+
+    // clear
+    for(DSO::dsoSpecification::channelLimits& l: _specification.limits) l.voltage.clear();
     _specification.bufferDividers.clear();
     _specification.samplerate.single.recordLengths.clear();
     _specification.samplerate.multi.recordLengths.clear();
-    _specification.gainSteps.clear();
-    for(unsigned channel = 0; channel < _specification.channels; ++channel)
-        _specification.limits[channel].voltage.clear();
+
+    _specification.specialTriggerSources = {"EXT", "EXT/10"};
 
     switch(_model.productID) {
         case 0x5200:
@@ -600,21 +532,20 @@ void HantekDevice::connectDevice() {
 
     // Get channel level data
     unsigned short int offsetLimit[_specification.channels][9][DSO::OFFSET_COUNT];
-    int errorCode = _device.controlRead(CONTROL_VALUE, (unsigned char *) &(offsetLimit),
+    int errorCode = _device->controlRead(CONTROL_VALUE, (unsigned char *) &(offsetLimit),
                                        sizeof(offsetLimit), (int) VALUE_OFFSETLIMITS);
     if(errorCode < 0) {
-        _device.disconnect();
+        _device->disconnect();
         _statusMessage(errorCode);
         return;
     }
 
     for (unsigned c=0; c < _specification.channels; ++c)
-        memcpy(_specification.limits[c].offset, offsetLimit[c], 9*DSO::OFFSET_COUNT);
+        memcpy((char*)&(_specification.limits[c].offset[0]), offsetLimit[c], 9*DSO::OFFSET_COUNT);
 
     // _signals for initial _settings
-    _availableRecordLengthsChanged(_settings.samplerate.limits->recordLengths);
     updateSamplerateLimits();
-    _recordLengthChanged(_settings.samplerate.limits->recordLengths[_settings.recordLengthId]);
+    _recordLengthChanged(_settings.samplerate.limits->recordLengths, _settings.recordLengthId);
     if(!isRollingMode())
         _recordTimeChanged((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current);
     _samplerateChanged(_settings.samplerate.current);
@@ -625,7 +556,7 @@ void HantekDevice::connectDevice() {
 }
 
 ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {
-    if(!_device.isConnected())
+    if(!_device->isConnected())
         return ErrorCode::ERROR_CONNECTION;
 
     if(channel >= _specification.channels)
@@ -648,31 +579,33 @@ ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {
         }
         else {
             // DSO-2250 uses a different value for channel 2
-            if(specificationCommands.bulk.setChannels == BULK_BSETCHANNELS)
+            if(_model.productID == 0x2250)
                 usedChannels = BUSED_CH2;
             else
                 usedChannels = USED_CH2;
         }
     }
 
-    switch(specificationCommands.bulk.setChannels) {
-        case BULK_SETTRIGGERANDSAMPLERATE: {
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
             // SetTriggerAndSamplerate bulk command for trigger source
-            static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get())->setUsedChannels(usedChannels);
-            _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+            static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setUsedChannels(usedChannels);
+            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
             break;
         }
-        case BULK_BSETCHANNELS: {
+        case 0x2250: {
             // SetChannels2250 bulk command for active channels
-            static_cast<BulkSetChannels2250 *>(_command[BULK_BSETCHANNELS].get())->setUsedChannels(usedChannels);
-            _commandPending[BULK_BSETCHANNELS] = true;
+            static_cast<BulkSetChannels2250 *>(_bulkCommands[BULK_BSETCHANNELS].cmd.get())->setUsedChannels(usedChannels);
+            _bulkCommands[BULK_BSETCHANNELS].pending = true;
 
             break;
         }
-        case BULK_ESETTRIGGERORSAMPLERATE: {
+        case 0x520A:
+        case 0x5200: {
             // SetTrigger5200s bulk command for trigger source
-            static_cast<BulkSetTrigger5200 *>(_command[BULK_ESETTRIGGERORSAMPLERATE].get())->setUsedChannels(usedChannels);
-            _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+            static_cast<BulkSetTrigger5200 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get())->setUsedChannels(usedChannels);
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
             break;
         }
         default:
@@ -690,7 +623,7 @@ ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {
 }
 
 ErrorCode HantekDevice::setCoupling(unsigned int channel, DSO::Coupling coupling) {
-    if(!_device.isConnected())
+    if(!_device->isConnected())
         return ErrorCode::ERROR_CONNECTION;
 
     if(channel >= _specification.channels)
@@ -699,17 +632,17 @@ ErrorCode HantekDevice::setCoupling(unsigned int channel, DSO::Coupling coupling
     // SetRelays control command for coupling relays
     ControlSetRelays* c = static_cast<ControlSetRelays*>(_controlCommands[CONTROLINDEX_SETRELAYS].control.get());
     c->setCoupling(channel, coupling != DSO::Coupling::COUPLING_AC);
-    _controlCommands[CONTROLINDEX_SETRELAYS].controlPending = true;
+    _controlCommands[CONTROLINDEX_SETRELAYS].pending = true;
 
     return ErrorCode::ERROR_NONE;
 }
 
-double HantekDevice::setGain(unsigned int channel, double gain) {
-    if(!_device.isConnected())
-        return (double) ErrorCode::ERROR_CONNECTION; /// \todo Return error
+ErrorCode HantekDevice::setGain(unsigned int channel, double gain) {
+    if(!_device->isConnected())
+        return ErrorCode::ERROR_CONNECTION;
 
     if(channel >= _specification.channels)
-        return (double) ErrorCode::ERROR_PARAMETER; /// \todo Return error
+        return ErrorCode::ERROR_PARAMETER;
 
     // Find lowest gain voltage thats at least as high as the requested
     unsigned gainId;
@@ -718,28 +651,29 @@ double HantekDevice::setGain(unsigned int channel, double gain) {
                     break;
 
     // SetGain bulk command for gain
-    static_cast<BulkSetGain *>(_command[BULK_SETGAIN].get())->setGain(channel, _specification.gainIndex[gainId]);
-    _commandPending[BULK_SETGAIN] = true;
+    static_cast<BulkSetGain *>(_bulkCommands[BULK_SETGAIN].cmd.get())->setGain(channel, _specification.gainIndex[gainId]);
+    _bulkCommands[BULK_SETGAIN].pending = true;
 
     // SetRelays control command for gain relays
     ControlSetRelays *controlSetRelays = static_cast<ControlSetRelays *>(_controlCommands[CONTROLINDEX_SETRELAYS].control.get());
     controlSetRelays->setBelow1V(channel, gainId < 3);
     controlSetRelays->setBelow100mV(channel, gainId < 6);
-    _controlCommands[CONTROLINDEX_SETRELAYS].controlPending = true;
+    _controlCommands[CONTROLINDEX_SETRELAYS].pending = true;
 
     _settings.voltage[channel].gain = gainId;
 
     setOffset(channel, _settings.voltage[channel].offset);
 
-    return _specification.gainSteps[gainId];
+    // _specification.gainSteps[gainId]
+    return ErrorCode::ERROR_NONE;
 }
 
-double HantekDevice::setOffset(unsigned int channel, double offset) {
-    if(!_device.isConnected())
-        return (double) ErrorCode::ERROR_CONNECTION; /// \todo Return error
+ErrorCode HantekDevice::setOffset(unsigned int channel, double offset) {
+    if(!_device->isConnected())
+        return ErrorCode::ERROR_CONNECTION; /// \todo Return error
 
     if(channel >= _specification.channels)
-        return (double) ErrorCode::ERROR_PARAMETER; /// \todo Return error
+        return ErrorCode::ERROR_PARAMETER; /// \todo Return error
 
     // Calculate the offset value
     // The range is given by the calibration data (convert from big endian)
@@ -750,23 +684,24 @@ double HantekDevice::setOffset(unsigned int channel, double offset) {
 
     // SetOffset control command for channel offset
     static_cast<ControlSetOffset *>(_controlCommands[CONTROLINDEX_SETOFFSET].control.get())->setChannel(channel, offsetValue);
-    _controlCommands[CONTROLINDEX_SETOFFSET].controlPending = true;
+    _controlCommands[CONTROLINDEX_SETOFFSET].pending = true;
 
     _settings.voltage[channel].offset = offset;
     _settings.voltage[channel].offsetReal = offsetReal;
 
     setTriggerLevel(channel, _settings.trigger.level[channel]);
 
-    return offsetReal;
+    // offsetReal;
+    return ErrorCode::ERROR_NONE;
 }
 
 int HantekDevice::bulkCommand(TransferBuffer* command) {
     // Send BeginCommand control command
-    int errorCode = _device.controlWrite(CONTROL_BEGINCOMMAND, beginCommandControl->data(), beginCommandControl->size());
+    int errorCode = _device->controlWrite(CONTROL_BEGINCOMMAND, beginCommandControl->data(), beginCommandControl->size());
     if(errorCode < 0)
-            return errorCode;
+        return errorCode;
 
-    return _device.bulkCommand(_command[BULK_GETCAPTURESTATE]->data(), _command[BULK_GETCAPTURESTATE]->size());
+    return _device->bulkWrite(command->data(), command->size());
 }
 
 }

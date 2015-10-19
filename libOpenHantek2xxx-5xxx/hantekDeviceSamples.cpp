@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <climits>
 
+#include "protocol.h"
 #include "hantekDevice.h"
 
 namespace Hantek {
@@ -57,8 +58,9 @@ double HantekDevice::computeBestSamplerate(double samplerate, bool fastRate, boo
         bestSamplerate = limits->max / _specification.bufferDividers[_settings.recordLengthId];
     }
     else {
-        switch(specificationCommands.bulk.setSamplerate) {
-            case BULK_SETTRIGGERANDSAMPLERATE:
+        switch(_model.productID) {
+            case 0x2150:
+            case 0x2090:
                 // DSO-2090 supports the downsampling factors 1, 2, 4 and 5 using valueFast or all even values above using valueSlow
                 if((maximum && bestDownsampler <= 5.0) || (!maximum && bestDownsampler < 6.0)) {
                     // valueFast is used
@@ -88,7 +90,8 @@ double HantekDevice::computeBestSamplerate(double samplerate, bool fastRate, boo
                 }
                 break;
 
-            case BULK_CSETTRIGGERORSAMPLERATE:
+            case 0x520A:
+            case 0x5200:
                 // DSO-5200 may not supports all downsampling factors, requires testing
                 if(maximum) {
                     bestDownsampler = ceil(bestDownsampler); // Round up to next integer value
@@ -98,7 +101,7 @@ double HantekDevice::computeBestSamplerate(double samplerate, bool fastRate, boo
                 }
                 break;
 
-            case BULK_ESETTRIGGERORSAMPLERATE:
+            case 0x2250:
                 // DSO-2250 doesn't have a fast value, so it supports all downsampling factors
                 if(maximum) {
                     bestDownsampler = ceil(bestDownsampler); // Round up to next integer value
@@ -128,34 +131,31 @@ unsigned int HantekDevice::updateRecordLength(unsigned int index) {
     if(index >= (unsigned int) _settings.samplerate.limits->recordLengths.size())
         return 0;
 
-    switch(specificationCommands.bulk.setRecordLength) {
-        case BULK_SETTRIGGERANDSAMPLERATE:
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090:
             // SetTriggerAndSamplerate bulk command for record length
-            static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get())->setRecordLength(index);
-            _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
-
+            static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setRecordLength(index);
+            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
             break;
 
-        case BULK_DSETBUFFER:
-            if(specificationCommands.bulk.setPretrigger == BULK_FSETBUFFER) {
-                // Pointers to needed commands
-                BulkSetRecordLength2250 *commandSetRecordLength2250 = static_cast<BulkSetRecordLength2250 *>(_command[BULK_DSETBUFFER].get());
-
-                commandSetRecordLength2250->setRecordLength(index);
-            }
-            else {
-                // SetBuffer5200 bulk command for record length
-                BulkSetBuffer5200 *commandSetBuffer5200 = static_cast<BulkSetBuffer5200 *>(_command[BULK_DSETBUFFER].get());
-
-                commandSetBuffer5200->setUsedPre(DTRIGGERPOSITION_ON);
-                commandSetBuffer5200->setUsedPost(DTRIGGERPOSITION_ON);
-                commandSetBuffer5200->setRecordLength(index);
-            }
-
-            _commandPending[BULK_DSETBUFFER] = true;
-
+        case 0x2250:
+            // Pointers to needed commands
+            static_cast<BulkSetRecordLength2250 *>(_bulkCommands[BULK_DSETBUFFER].cmd.get())->setRecordLength(index);
+            _bulkCommands[BULK_DSETBUFFER].pending = true;
             break;
+        case 0x520A:
+        case 0x5200: {
+            // SetBuffer5200 bulk command for record length
+            BulkSetBuffer5200 *commandSetBuffer5200 = static_cast<BulkSetBuffer5200 *>(_bulkCommands[BULK_DSETBUFFER].cmd.get());
 
+            commandSetBuffer5200->setUsedPre(DTRIGGERPOSITION_ON);
+            commandSetBuffer5200->setUsedPost(DTRIGGERPOSITION_ON);
+            commandSetBuffer5200->setRecordLength(index);
+
+            _bulkCommands[BULK_DSETBUFFER].pending = true;
+            break;
+        }
         default:
             return 0;
     }
@@ -180,8 +180,9 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
     DSO::ControlSamplerateLimits *limits = fastRate ? &_specification.samplerate.multi : &_specification.samplerate.single;
 
     // Set the calculated samplerate
-    switch(specificationCommands.bulk.setSamplerate) {
-        case BULK_SETTRIGGERANDSAMPLERATE: {
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
             short int downsamplerValue = 0;
             unsigned char samplerateId = 0;
             bool downsampling = false;
@@ -207,7 +208,7 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
             }
 
             // Pointers to needed commands
-            BulkSetTriggerAndSamplerate *commandSetTriggerAndSamplerate = static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get());
+            BulkSetTriggerAndSamplerate *commandSetTriggerAndSamplerate = static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get());
 
             // Store if samplerate ID or downsampling factor is used
             commandSetTriggerAndSamplerate->setDownsamplingMode(downsampling);
@@ -218,19 +219,20 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
             // Set fast rate when used
             commandSetTriggerAndSamplerate->setFastRate(false /*fastRate*/);
 
-            _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
 
             break;
         }
-        case BULK_CSETTRIGGERORSAMPLERATE: {
+        case 0x520A:
+        case 0x5200: {
             // Split the resulting divider into the values understood by the device
             // The fast value is kept at 4 (or 3) for slow sample rates
             long int valueSlow = std::max(((long int) downsampler - 3) / 2, (long int) 0);
             unsigned char valueFast = downsampler - valueSlow * 2;
 
             // Pointers to needed commands
-            BulkSetSamplerate5200 *commandSetSamplerate5200 = static_cast<BulkSetSamplerate5200 *>(_command[BULK_CSETTRIGGERORSAMPLERATE].get());
-            BulkSetTrigger5200 *commandSetTrigger5200 = static_cast<BulkSetTrigger5200 *>(_command[BULK_ESETTRIGGERORSAMPLERATE].get());
+            BulkSetSamplerate5200 *commandSetSamplerate5200 = static_cast<BulkSetSamplerate5200 *>(_bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.get());
+            BulkSetTrigger5200 *commandSetTrigger5200 = static_cast<BulkSetTrigger5200 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get());
 
             // Store samplerate fast value
             commandSetSamplerate5200->setSamplerateFast(4 - valueFast);
@@ -239,14 +241,14 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
             // Set fast rate when used
             commandSetTrigger5200->setFastRate(fastRate);
 
-            _commandPending[BULK_CSETTRIGGERORSAMPLERATE] = true;
-            _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
 
             break;
         }
-        case BULK_ESETTRIGGERORSAMPLERATE: {
+        case 0x2250: {
             // Pointers to needed commands
-            BulkSetSamplerate2250 *commandSetSamplerate2250 = static_cast<BulkSetSamplerate2250 *>(_command[BULK_ESETTRIGGERORSAMPLERATE].get());
+            BulkSetSamplerate2250 *commandSetSamplerate2250 = static_cast<BulkSetSamplerate2250 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get());
 
             bool downsampling = downsampler >= 1;
             // Store downsampler state value
@@ -256,7 +258,7 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
             // Set fast rate when used
             commandSetSamplerate2250->setFastRate(fastRate);
 
-            _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
 
             break;
         }
@@ -277,17 +279,16 @@ unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastR
         _settings.samplerate.current = _settings.samplerate.limits->max / _specification.bufferDividers[_settings.recordLengthId];
 
     // Update dependencies
-    this->setPretriggerPosition(_settings.trigger.position);
+    this->updatePretriggerPosition(_settings.trigger.position);
 
     // Emit signals for changed settings
     if(fastRateChanged) {
-        _availableRecordLengthsChanged(_settings.samplerate.limits->recordLengths);
-        _recordLengthChanged(_settings.samplerate.limits->recordLengths[_settings.recordLengthId]);
+        _recordLengthChanged(_settings.samplerate.limits->recordLengths, _settings.recordLengthId);
     }
 
     // Check for Roll mode
     if(!isRollingMode())
-                _recordTimeChanged((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current);
+         _recordTimeChanged((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current);
 
     _samplerateChanged(_settings.samplerate.current);
 

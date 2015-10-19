@@ -30,37 +30,31 @@
 #include <chrono>
 #include <future>
 
-#include "utils/containerStream.h"
-
-#include "dsoSettings.h"
-#include "dsoSpecification.h"
-#include "usbCommunication.h"
 #include "protocol.h"
+#include "usbCommunication.h"
+#include "usbCommunicationQueues.h"
 #include "deviceBase.h"
-#include "deviceDescriptionEntry.h"
 #include "errorcodes.h"
-
-class libusb_device;
 
 namespace Hantek {
 
 //////////////////////////////////////////////////////////////////////////////
 /// Implementation of a DSO DeviceBase for Hantek USB DSO DSO-20xx, DSO-21xx, DSO-22xx, DSO-52xx
-class HantekDevice : public DSO::DeviceBase {
+class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueues {
     public:
-        HantekDevice(libusb_device *device, const DSO::DSODeviceDescription& model);
+        HantekDevice(std::unique_ptr<DSO::USBCommunication> device);
         ~HantekDevice();
 
         /// Implemented methods from base classes
 
         virtual ErrorCode setChannelUsed(unsigned int channel, bool used);
         virtual ErrorCode setCoupling(unsigned int channel, DSO::Coupling coupling);
-        virtual double setGain(unsigned int channel, double gain);
-        virtual double setOffset(unsigned int channel, double offset);
+        virtual ErrorCode setGain(unsigned int channel, double gain);
+        virtual ErrorCode setOffset(unsigned int channel, double offset);
         virtual ErrorCode setTriggerSource(bool special, unsigned int id);
-        virtual double setTriggerLevel(unsigned int channel, double level);
+        virtual ErrorCode setTriggerLevel(unsigned int channel, double level);
         virtual ErrorCode setTriggerSlope(DSO::Slope slope);
-        virtual double setPretriggerPosition(double position);
+        virtual double updatePretriggerPosition(double position);
         virtual double computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler);
         virtual unsigned int updateRecordLength(unsigned int index);
         virtual unsigned int updateSamplerate(unsigned int downsampler, bool fastRate);
@@ -68,11 +62,12 @@ class HantekDevice : public DSO::DeviceBase {
 
         virtual unsigned getUniqueID();
 
+        virtual bool needFirmware();
+        virtual ErrorCode uploadFirmware();
+
         virtual bool isDeviceConnected();
         virtual void connectDevice();
         virtual void disconnectDevice();
-    protected:
-        int getCommunicationPacketSize() { return _device.getPacketSize(); }
     private:
         //////////////////////////////////////////////////////////////////////////////
         /// \enum RollState
@@ -87,44 +82,45 @@ class HantekDevice : public DSO::DeviceBase {
 
         //////////////////////////////////////////////////////////////////////////////
         /// \enum ControlIndex
-        /// \brief The array indices for the waiting control commands.
+        /// \brief The array indices for possible control commands.
         enum ControlIndex {
-                //CONTROLINDEX_VALUE,
-                //CONTROLINDEX_GETSPEED,
-                //CONTROLINDEX_BEGINCOMMAND,
                 CONTROLINDEX_SETOFFSET,
                 CONTROLINDEX_SETRELAYS,
                 CONTROLINDEX_COUNT
         };
 
-        /// \brief Handles all USB things until the device gets disconnected.
+        /// \brief Handles all USB communication and sampling until the device gets disconnected.
         void run();
-        /// Send all pending bulk commands
-        bool sendPendingBulkCommands();
-        /// Send all pending control commands
-        bool sendPendingControlCommands();
         bool runRollmode(RollState& rollState, int& samplingStarted);
         bool runStandardMode(CaptureState& captureState, int& cycleCounter, int& startCycle, int timerIntervall, int& samplingStarted);
 
+        /**
+         * @brief Sends a bulk command. _device->bulkWrite cannot be called
+         * directly, because a usb control sequence has to be send before each bulk request.
+         * This can only be done in the sample thread (in run()).
+         * @param command
+         * @return Return an usb error code.
+         */
         int bulkCommand(TransferBuffer* command);
         ControlBeginCommand *beginCommandControl = new ControlBeginCommand();
 
         /// \brief Gets the current state.
+        /// This is done in the sample thread (in run())
         /// \return The current CaptureState of the oscilloscope, libusb error code on error.
         int readCaptureState();
 
         /// \brief Gets sample data from the oscilloscope and converts it.
+        /// This is done in the sample thread (in run())
         /// \return sample count on success, libusb error code on error.
         int readSamples(bool process);
 
         /// The USB device for the oscilloscope
-        DSO::USBCommunication _device;
+        std::unique_ptr<DSO::USBCommunication> _device;
         std::unique_ptr<std::thread> _thread;
 
+        /// USB device has been disconnected. This will be called if disconnectDevice() is issued before
+        /// or if an usb error occured or the device has been plugged out.
         void deviceDisconnected();
-
-        /// Command interface
-        dsoSpecificationCommands specificationCommands;
 };
 
 }

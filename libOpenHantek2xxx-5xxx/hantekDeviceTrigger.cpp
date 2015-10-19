@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <climits>
 
+#include "protocol.h"
 #include "hantekDevice.h"
 
 namespace Hantek {
@@ -38,26 +39,28 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         if(!isDeviceConnected())
             return ErrorCode::ERROR_CONNECTION;
 
-        if((!special && id >= _specification.channels) || (special && id >= HANTEK_SPECIAL_CHANNELS))
+        if((!special && id >= _specification.channels) || (special && id >= _specification.channels_special))
             return ErrorCode::ERROR_PARAMETER;
 
-        switch(specificationCommands.bulk.setTrigger) {
-            case BULK_SETTRIGGERANDSAMPLERATE:
+        switch(_model.productID) {
+            case 0x2150:
+            case 0x2090:
                 // SetTriggerAndSamplerate bulk command for trigger source
-                static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get())->setTriggerSource(special ? 3 + id : 1 - id);
-                _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+                static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setTriggerSource(special ? 3 + id : 1 - id);
+                _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
                 break;
 
-            case BULK_CSETTRIGGERORSAMPLERATE:
+            case 0x2250:
                 // SetTrigger2250 bulk command for trigger source
-                static_cast<BulkSetTrigger2250 *>(_command[BULK_CSETTRIGGERORSAMPLERATE].get())->setTriggerSource(special ? 0 : 2 + id);
-                _commandPending[BULK_CSETTRIGGERORSAMPLERATE] = true;
+                static_cast<BulkSetTrigger2250 *>(_bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.get())->setTriggerSource(special ? 0 : 2 + id);
+                _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
                 break;
 
-            case BULK_ESETTRIGGERORSAMPLERATE:
+            case 0x520A:
+            case 0x5200:
                 // SetTrigger5200 bulk command for trigger source
-                static_cast<BulkSetTrigger5200 *>(_command[BULK_ESETTRIGGERORSAMPLERATE].get())->setTriggerSource(special ? 3 + id : 1 - id);
-                _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+                static_cast<BulkSetTrigger5200 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get())->setTriggerSource(special ? 3 + id : 1 - id);
+                _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
                 break;
 
             default:
@@ -66,7 +69,7 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
 
         // SetRelays control command for external trigger relay
         static_cast<ControlSetRelays *>(_controlCommands[CONTROLINDEX_SETRELAYS].control.get())->setTrigger(special);
-        _controlCommands[CONTROLINDEX_SETRELAYS].controlPending = true;
+        _controlCommands[CONTROLINDEX_SETRELAYS].pending = true;
 
         _settings.trigger.special = special;
         _settings.trigger.source = id;
@@ -75,7 +78,7 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         if(special) {
             // SetOffset control command for changed trigger level
             static_cast<ControlSetOffset *>(_controlCommands[CONTROLINDEX_SETOFFSET].control.get())->setTrigger(0x7f);
-            _controlCommands[CONTROLINDEX_SETOFFSET].controlPending = true;
+            _controlCommands[CONTROLINDEX_SETOFFSET].pending = true;
         }
         else
             this->setTriggerLevel(id, _settings.trigger.level[id]);
@@ -84,12 +87,12 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
     }
 
 
-    double HantekDevice::setTriggerLevel(unsigned int channel, double level) {
+    ErrorCode HantekDevice::setTriggerLevel(unsigned int channel, double level) {
         if(!isDeviceConnected())
-            return (double) ErrorCode::ERROR_CONNECTION; /// \todo Return error
+            return ErrorCode::ERROR_CONNECTION;
 
         if(channel >= _specification.channels)
-            return (double) ErrorCode::ERROR_PARAMETER; /// \todo Return error
+            return ErrorCode::ERROR_PARAMETER;
 
         // Calculate the trigger level value
         unsigned short int minimum, maximum;
@@ -117,13 +120,14 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         if(!_settings.trigger.special && channel == _settings.trigger.source) {
             // SetOffset control command for trigger level
             static_cast<ControlSetOffset *>(_controlCommands[CONTROLINDEX_SETOFFSET].control.get())->setTrigger(levelValue);
-            _controlCommands[CONTROLINDEX_SETOFFSET].controlPending = true;
+            _controlCommands[CONTROLINDEX_SETOFFSET].pending = true;
         }
 
         /// \todo Get alternating trigger in here
 
         _settings.trigger.level[channel] = level;
-        return (double) ((levelValue - minimum) / (maximum - minimum) - _settings.voltage[channel].offsetReal) * _specification.gainSteps[_settings.voltage[channel].gain];
+        // ((levelValue - minimum) / (maximum - minimum) - _settings.voltage[channel].offsetReal) * _specification.gainSteps[_settings.voltage[channel].gain];
+        return ErrorCode::ERROR_NONE;
     }
 
 
@@ -135,23 +139,23 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         if(slope != DSO::Slope::SLOPE_NEGATIVE && slope != DSO::Slope::SLOPE_POSITIVE)
             return ErrorCode::ERROR_PARAMETER;
 
-        switch(specificationCommands.bulk.setTrigger) {
+        switch(_model.productID) {
             case BULK_SETTRIGGERANDSAMPLERATE: {
                 // SetTriggerAndSamplerate bulk command for trigger slope
-                static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get())->setTriggerSlope((uint8_t)slope);
-                _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+                static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setTriggerSlope((uint8_t)slope);
+                _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
                 break;
             }
             case BULK_CSETTRIGGERORSAMPLERATE: {
                 // SetTrigger2250 bulk command for trigger slope
-                static_cast<BulkSetTrigger2250 *>(_command[BULK_CSETTRIGGERORSAMPLERATE].get())->setTriggerSlope((uint8_t)slope);
-                _commandPending[BULK_CSETTRIGGERORSAMPLERATE] = true;
+                static_cast<BulkSetTrigger2250 *>(_bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.get())->setTriggerSlope((uint8_t)slope);
+                _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
                 break;
             }
             case BULK_ESETTRIGGERORSAMPLERATE: {
                 // SetTrigger5200 bulk command for trigger slope
-                static_cast<BulkSetTrigger5200 *>(_command[BULK_ESETTRIGGERORSAMPLERATE].get())->setTriggerSlope((uint8_t)slope);
-                _commandPending[BULK_ESETTRIGGERORSAMPLERATE] = true;
+                static_cast<BulkSetTrigger5200 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get())->setTriggerSlope((uint8_t)slope);
+                _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
                 break;
             }
             default:
@@ -162,7 +166,7 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         return ErrorCode::ERROR_NONE;
     }
 
-    double HantekDevice::setPretriggerPosition(double position) {
+    double HantekDevice::updatePretriggerPosition(double position) {
         if(!isDeviceConnected())
             return -2;
 
@@ -174,40 +178,42 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
         if(_settings.samplerate.limits == &_specification.samplerate.multi)
             positionSamples /= _specification.channels;
 
-        switch(specificationCommands.bulk.setPretrigger) {
-            case BULK_SETTRIGGERANDSAMPLERATE: {
+        switch(_model.productID) {
+            case 0x2150:
+            case 0x2090: {
                 // Calculate the position value (Start point depending on record length)
                 unsigned int position = rollMode ? 0x1 : 0x7ffff - recordLength + positionSamples;
 
                 // SetTriggerAndSamplerate bulk command for trigger position
-                static_cast<BulkSetTriggerAndSamplerate *>(_command[BULK_SETTRIGGERANDSAMPLERATE].get())->setTriggerPosition(position);
-                _commandPending[BULK_SETTRIGGERANDSAMPLERATE] = true;
+                static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setTriggerPosition(position);
+                _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
 
                 break;
             }
-            case BULK_FSETBUFFER: {
+            case 0x2250: {
                 // Calculate the position values (Inverse, maximum is 0x7ffff)
                 unsigned int positionPre = 0x7ffff - recordLength + positionSamples;
                 unsigned int positionPost = 0x7ffff - positionSamples;
 
                 // SetBuffer2250 bulk command for trigger position
-                BulkSetBuffer2250 *commandSetBuffer2250 = static_cast<BulkSetBuffer2250 *>(_command[BULK_FSETBUFFER].get());
+                BulkSetBuffer2250 *commandSetBuffer2250 = static_cast<BulkSetBuffer2250 *>(_bulkCommands[BULK_FSETBUFFER].cmd.get());
                 commandSetBuffer2250->setTriggerPositionPre(positionPre);
                 commandSetBuffer2250->setTriggerPositionPost(positionPost);
-                _commandPending[BULK_FSETBUFFER] = true;
+                _bulkCommands[BULK_FSETBUFFER].pending = true;
 
                 break;
             }
-            case BULK_ESETTRIGGERORSAMPLERATE: {
+            case 0x520A:
+            case 0x5200: {
                 // Calculate the position values (Inverse, maximum is 0xffff)
                 unsigned short int positionPre = 0xffff - recordLength + positionSamples;
                 unsigned short int positionPost = 0xffff - positionSamples;
 
                 // SetBuffer5200 bulk command for trigger position
-                BulkSetBuffer5200 *commandSetBuffer5200 = static_cast<BulkSetBuffer5200 *>(_command[BULK_DSETBUFFER].get());
+                BulkSetBuffer5200 *commandSetBuffer5200 = static_cast<BulkSetBuffer5200 *>(_bulkCommands[BULK_DSETBUFFER].cmd.get());
                 commandSetBuffer5200->setTriggerPositionPre(positionPre);
                 commandSetBuffer5200->setTriggerPositionPost(positionPost);
-                _commandPending[BULK_DSETBUFFER] = true;
+                _bulkCommands[BULK_DSETBUFFER].pending = true;
 
                 break;
             }
@@ -220,7 +226,7 @@ std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, 
     }
 
     int HantekDevice::forceTrigger() {
-        _commandPending[BULK_FORCETRIGGER] = true;
+        _bulkCommands[BULK_FORCETRIGGER].pending = true;
         return 0;
     }
 }
