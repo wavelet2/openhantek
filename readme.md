@@ -12,10 +12,13 @@ Supported operating systems:
 
 ## Building OpenHantek from source
 You need the following packages, to build OpenHantek from source:
-* CMake 2.8.12+
+* CMake 3.0+
 * Qt 5+
 * FFTW 3+
 * libusb 1.x
+
+A compiler capable of C++11 (g++5, clang 3.6, Visual Studio 2013). g++4.8 does
+not support all necessary features.
 
 For debian based systems (Ubuntu, Mint) install named requirements like this:
 > apt-get install cmake libqt5-dev libfftw3-dev

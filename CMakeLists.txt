@@ -1,4 +1,8 @@
+# We need cmake 3.0 for Qt AUTORCC
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+project(OpenHantekProject)
+
+add_custom_target(readme SOURCES readme.md)
 
 # Default build type
 IF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -17,15 +21,23 @@ endif()
 # Find external libraries
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/")
 
-# Build usb DSO lib and Hantek DSO library and postprocessing lib
+# Build usb DSO lib and postprocessing lib
 add_subdirectory(libusbDSO)
 include_directories(libusbDSO)
-add_subdirectory(libOpenHantek)
-include_directories(libOpenHantek)
 add_subdirectory(libPostprocessingDSO)
 include_directories(libPostprocessingDSO)
-# Gui
+
+# Build Hantek DSO library to support product types 2xxx-5xxx
+add_subdirectory(libOpenHantek2xxx-5xxx)
+
+# Build Hantek DSO library to support product types 60xx
+add_subdirectory(libOpenHantek60xx)
+
+# Qt Widgets based Gui with OpenGL canvas
 add_subdirectory(openhantek)
+
+# Qt QML based Gui
+add_subdirectory(openhantek2)
 
 include(cmake/CPackInfos.cmake)
 
