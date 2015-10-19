@@ -79,7 +79,7 @@ class HorizontalDock : public QDockWidget {
         bool suppressSignals; ///< Disable changed-signals temporarily
 
     public slots:
-        void availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths);
+        void availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths, unsigned long);
         void samplerateLimitsChanged(double minimum, double maximum);
 
     protected slots:

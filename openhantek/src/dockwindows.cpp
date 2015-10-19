@@ -175,7 +175,7 @@ int HorizontalDock::setFormat(DSOAnalyser::GraphFormat format) {
 
 /// \brief Updates the available record lengths in the combo box.
 /// \param recordLengths The available record lengths for the combo box.
-void HorizontalDock::availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths) {
+void HorizontalDock::availableRecordLengthsChanged(const std::vector<unsigned> &recordLengths, unsigned long) {
     /// \todo Empty lists should be interpreted as scope supporting continuous record length values.
     this->recordLengthComboBox->blockSignals(true); // Avoid messing up the settings
     this->recordLengthComboBox->setUpdatesEnabled(false);

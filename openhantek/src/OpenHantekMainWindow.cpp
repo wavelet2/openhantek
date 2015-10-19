@@ -310,7 +310,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
     connect(this->triggerDock, &TriggerDock::sourceChanged,
          std::bind(&DSO::DeviceBase::setTriggerSource, _device, _1, _2));
     connect(this->dsoWidget, &DsoWidget::triggerPositionChanged,
-         std::bind(&DSO::DeviceBase::setPretriggerPosition, _device, _1));
+         std::bind(&DSO::DeviceBase::updatePretriggerPosition, _device, _1));
     connect(this->triggerDock, &TriggerDock::slopeChanged,
         std::bind(&DSO::DeviceBase::setTriggerSlope, _device, _1));
     connect(this->dsoWidget, &DsoWidget::triggerLevelChanged,
@@ -327,7 +327,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
     _device->_recordTimeChanged = std::bind(&OpenHantekMainWindow::recordTimeChanged, this, std::placeholders::_1);
     _device->_samplerateChanged = std::bind(&OpenHantekMainWindow::samplerateChanged, this, std::placeholders::_1);
 
-    _device->_availableRecordLengthsChanged = std::bind(&HorizontalDock::availableRecordLengthsChanged, this->horizontalDock, std::placeholders::_1);
+    _device->_recordLengthChanged = std::bind(&HorizontalDock::availableRecordLengthsChanged, this->horizontalDock, std::placeholders::_1, std::placeholders::_2);
     _device->_samplerateLimitsChanged = std::bind(&HorizontalDock::samplerateLimitsChanged, this->horizontalDock, std::placeholders::_1, std::placeholders::_2);
 
     _device->connectDevice();
@@ -350,7 +350,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
         _device->setRecordLength(index < 0 ? 1 : index);
     }
     _device->setTriggerMode(this->settings->scope.trigger.mode);
-    _device->setPretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
+    _device->updatePretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
     _device->setTriggerSlope(this->settings->scope.trigger.slope);
     _device->setTriggerSource(this->settings->scope.trigger.special, this->settings->scope.trigger.source);
 
@@ -623,7 +623,7 @@ void OpenHantekMainWindow::recordTimeChanged(double duration) {
     }
 
     // The trigger position should be kept at the same place but the timebase has changed
-    _device->setPretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
+    _device->updatePretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
 
     this->dsoWidget->updateTimebase(this->settings->scope.horizontal.timebase);
 }
