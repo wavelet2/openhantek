@@ -242,7 +242,7 @@ void HantekDevice::run() {
         if (readSamples() < 0)
             break;
 
-        processSamples(_data, _dataSize);
+        //processSamples(_data, _dataSize);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(cycleTime));
     }

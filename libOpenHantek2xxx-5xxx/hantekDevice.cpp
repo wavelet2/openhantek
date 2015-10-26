@@ -420,7 +420,8 @@ void HantekDevice::connectDevice() {
 
         default:
             _device->disconnect();
-            _statusMessage(10000);
+            std::cerr <<"Model not supported by this driver!" << std::endl;
+            _statusMessage(int(ErrorCode::ERROR_UNSUPPORTED));
             return;
     }
 
