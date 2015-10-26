@@ -20,16 +20,11 @@
 //  this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 ////////////////////////////////////////////////////////////////////////////////
-
-
 #include <cfloat>
 #include <cmath>
 
-
 #include "sispinbox.h"
-
-#include "helper.h"
-
+using namespace UnitToString;
 
 ////////////////////////////////////////////////////////////////////////////////
 // class OpenHantekMainWindow
@@ -42,7 +37,7 @@ SiSpinBox::SiSpinBox(QWidget *parent) : QDoubleSpinBox(parent) {
 /// \brief Initializes the SiSpinBox, allowing the user to choose the unit.
 /// \param unit The unit shown for the value in the spin box.
 /// \param parent The parent widget.
-SiSpinBox::SiSpinBox(Helper::Unit unit, QWidget *parent) : QDoubleSpinBox(parent) {
+SiSpinBox::SiSpinBox(Unit unit, QWidget *parent) : QDoubleSpinBox(parent) {
     this->init();
 
     this->setUnit(unit);
@@ -60,7 +55,7 @@ QValidator::State SiSpinBox::validate(QString &input, int &pos) const {
     Q_UNUSED(pos);
 
     bool ok;
-    double value = Helper::stringToValue(input, this->unit, &ok);
+    double value =valueFromText(input, &ok);
 
     if(!ok)
         return QValidator::Invalid;
@@ -73,22 +68,123 @@ QValidator::State SiSpinBox::validate(QString &input, int &pos) const {
 /// \brief Parse value from input text.
 /// \param text The content of the text box.
 /// \return Value in base unit.
-double SiSpinBox::valueFromText(const QString &text) const {
-    return Helper::stringToValue(text, this->unit);
+double SiSpinBox::valueFromText(const QString &text, bool* ok) const {
+    // Check if the text is empty
+    int totalSize = text.size();
+    if(!totalSize){
+        if(ok)
+            *ok = false;
+        return 0.0;
+    }
+
+    // Split value and unit apart
+    int valueSize = 0;
+    QLocale locale;
+    bool decimalFound = false;
+    bool exponentFound = false;
+    if(text[valueSize] == locale.negativeSign())
+        ++valueSize;
+    for(; valueSize < text.size(); ++valueSize) {
+        QChar character = text[valueSize];
+
+        if(character.isDigit()) {
+        }
+        else if(character == locale.decimalPoint() && decimalFound == false && exponentFound == false) {
+            decimalFound = true;
+        }
+        else if(character == locale.exponential() && exponentFound == false) {
+            exponentFound = true;
+            if(text[valueSize + 1] == locale.negativeSign())
+                ++valueSize;
+        }
+        else {
+            break;
+        }
+    }
+    QString valueString = text.left(valueSize);
+    bool valueOk = false;
+    double value = valueString.toDouble(&valueOk);
+    if(!valueOk) {
+        if(ok)
+            *ok = false;
+        return value;
+    }
+    QString unitString = text.right(text.size() - valueSize).trimmed();
+
+    if(ok)
+        *ok = true;
+    switch(unit) {
+        case UNIT_VOLTS: {
+            // Voltage string decoding
+            if(unitString.startsWith('\265'))
+                return value * 1e-6;
+            else if(unitString.startsWith('m'))
+                return value * 1e-3;
+            else
+                return value;
+        }
+        case UNIT_DECIBEL:
+            // Power level string decoding
+            return value;
+
+        case UNIT_SECONDS:
+            // Time string decoding
+            if(unitString.startsWith('p'))
+                return value * 1e-12;
+            else if(unitString.startsWith('n'))
+                return value * 1e-9;
+            else if(unitString.startsWith('\265'))
+                return value * 1e-6;
+            else if(unitString.startsWith("min"))
+                return value * 60;
+            else if(unitString.startsWith('m'))
+                return value * 1e-3;
+            else if(unitString.startsWith('h'))
+                return value * 3600;
+            else
+                return value;
+
+        case UNIT_HERTZ:
+            // Frequency string decoding
+            if(unitString.startsWith('k'))
+                return value * 1e3;
+            else if(unitString.startsWith('M'))
+                return value * 1e6;
+            else if(unitString.startsWith('G'))
+                return value * 1e9;
+            else
+                return value;
+
+        case UNIT_SAMPLES:
+            // Sample count string decoding
+            if(unitString.startsWith('k'))
+                return value * 1e3;
+            else if(unitString.startsWith('M'))
+                return value * 1e6;
+            else if(unitString.startsWith('G'))
+                return value * 1e9;
+            else
+                return value;
+
+        default:
+            if(ok)
+                *ok = false;
+            return value;
+    }
 }
 
 /// \brief Get string representation of value.
 /// \param val Value in base unit.
 /// \return String representation containing value and (prefix+)unit.
 QString SiSpinBox::textFromValue(double val) const {
-    return Helper::valueToString(val, this->unit, -1) + this->unitPostfix;
+    return UnitToString::valueToString(val, this->unit, -1) + this->unitPostfix;
 }
 
 /// \brief Fixes the text after the user finished changing it.
 /// \param input The content of the text box.
 void SiSpinBox::fixup(QString &input) const {
     bool ok;
-    double value = Helper::stringToValue(input, this->unit, &ok);
+    double value = valueFromText(input, &ok);
 
     if(!ok)
         value = this->value();
@@ -147,8 +243,8 @@ void SiSpinBox::stepBy(int steps) {
 /// \brief Set the unit for this spin box.
 /// \param unit The unit shown for the value in the spin box.
 /// \return true on success, false on invalid unit.
-bool SiSpinBox::setUnit(Helper::Unit unit) {
-    if((unsigned int) unit >= Helper::UNIT_COUNT)
+bool SiSpinBox::setUnit(Unit unit) {
+    if((unsigned int) unit >= UNIT_COUNT)
         return false;
 
     this->unit = unit;

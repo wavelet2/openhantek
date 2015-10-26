@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 
 # include directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-include_directories(src/ src/widgets src/preferences)
+include_directories(src/ src/widgets src/preferences src/translations)
 
 # collect sources and other files
 file(GLOB_RECURSE SRC "src/*.cpp")

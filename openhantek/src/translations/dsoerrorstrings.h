@@ -1,10 +1,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  OpenHantek
-/// \brief Provides miscellaneous helper functions.
+/// \brief Defines various constants, enums and functions for DSO settings.
 //
-//  Copyright (C) 2010  Oliver Haag
-//  oliver.haag@gmail.com
+//  Copyright (C) 2010  Oliver Haag <oliver.haag@gmail.com>
+//  Copyright (C) 2015  David Graeff <david.graeff@web.de>
 //
 //  This program is free software: you can redistribute it and/or modify it
 //  under the terms of the GNU General Public License as published by the Free
@@ -20,28 +20,11 @@
 //  this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 ////////////////////////////////////////////////////////////////////////////////
-
-
-#ifndef HELPER_H
-#define HELPER_H
-
+#pragma once
 
 #include <QString>
-#include <QTime>
 
-namespace Helper {
-    //////////////////////////////////////////////////////////////////////////////
-    /// \enum Unit                                                        helper.h
-    /// \brief The various units supported by valueToString.
-    enum Unit {
-        UNIT_VOLTS, UNIT_DECIBEL,
-        UNIT_SECONDS, UNIT_HERTZ,
-        UNIT_SAMPLES, UNIT_COUNT
-    };
-
-    QString valueToString(double value, Unit unit, int precision = -1);
-    double stringToValue(const QString &text, Unit unit, bool *ok = 0);
-};
-
-
-#endif
+/// \brief Returns string representation for libusb or other libDSO ErrorCode errors.
+/// \param error The error code.
+/// \return String explaining the error.
+QString getErrorString(int error);

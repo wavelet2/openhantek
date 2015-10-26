@@ -44,9 +44,13 @@
 
 #include "OpenHantekMainWindow.h"
 
+// translations
+#include "dsoerrorstrings.h"
+
 // libs
 #include "dataAnalyzer.h"
 #include "deviceBase.h"
+#include "usbCommunicationQueues.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // class OpenHantekMainWindow
@@ -245,8 +249,10 @@ void OpenHantekMainWindow::createStatusBar() {
     this->statusBar()->showMessage(tr("Ready"));
 
 #ifdef DEBUG
-    connect(this->commandAction, &QAction::triggered, this->commandEdit, &QLineEdit::show);
-    connect(this->commandAction, &QAction::triggered, this->commandEdit, &QLineEdit::setFocus);
+    connect(this->commandAction, &QAction::triggered, [this]() {
+        this->commandEdit->show();
+        this->commandEdit->setFocus();
+    });
     connect(this->commandEdit, &QLineEdit::returnPressed, this, &OpenHantekMainWindow::sendCommand);
 #endif
 }
@@ -317,7 +323,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
         std::bind(&DSO::DeviceBase::setTriggerLevel, _device, _1, _2));
 
     _device->_statusMessage = [this](int code) {
-        this->statusBar()->showMessage(libUsbErrorString(code));
+        this->statusBar()->showMessage(getErrorString(code));
     };
 
     // Started/stopped signals from oscilloscope
@@ -701,12 +707,12 @@ void OpenHantekMainWindow::updateVoltageGain(unsigned int channel) {
 #ifdef DEBUG
 /// \brief Send the command in the commandEdit to the oscilloscope.
 void OpenHantekMainWindow::sendCommand() {
-    int errorCode = _device->stringCommand(this->commandEdit->text());
+    ErrorCode errorCode = dynamic_cast<DSO::CommunicationThreadQueues*>(_device.get())->stringCommand(this->commandEdit->text().toStdString());
 
     this->commandEdit->hide();
     this->commandEdit->clear();
 
-    if(errorCode < 0)
+    if(errorCode != ErrorCode::ERROR_NONE)
         this->statusBar()->showMessage(tr("Invalid command"), 3000);
 }
 #endif

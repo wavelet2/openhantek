@@ -28,9 +28,7 @@
 
 #include <QDoubleSpinBox>
 #include <QStringList>
-
-#include "helper.h"
-
+#include "unitToString.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 ///
@@ -44,22 +42,28 @@ class SiSpinBox : public QDoubleSpinBox
 
     public:
         explicit SiSpinBox(QWidget *parent = 0);
-        SiSpinBox(Helper::Unit unit, QWidget *parent = 0);
+        SiSpinBox(UnitToString::Unit unit, QWidget *parent = 0);
         ~SiSpinBox();
 
         QValidator::State validate(QString &input, int &pos) const;
-        double valueFromText(const QString &text) const;
-    QString textFromValue(double val) const;
+        /// \brief Converts string containing value and (prefix+)unit to double (Counterpart to Helper::valueToString).
+        /// \param text The text containing the value and its unit.
+        /// \param unit The base unit of the value.
+        /// \param ok Pointer to a success-flag, true on success, false on error.
+        /// \return Decoded value.
+        double valueFromText(const QString &text, bool* ok = 0) const;
+        QString textFromValue(double val) const;
         void fixup(QString &input) const;
         void stepBy(int steps);
-        bool setUnit(Helper::Unit unit);
+        bool setUnit(UnitToString::Unit unit);
         void setUnitPostfix(const QString &postfix);
         void setSteps(const QList<double> &steps);
+
 
     private:
         void init();
 
-        Helper::Unit unit; ///< The SI unit used for this spin box
+        UnitToString::Unit unit; ///< The SI unit used for this spin box
         QString unitPostfix; ///< Shown after the unit
         QList<double> steps; ///< The steps, begins from start after last element
 

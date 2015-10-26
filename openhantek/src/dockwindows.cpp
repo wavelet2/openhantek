@@ -33,7 +33,7 @@
 
 #include "settings.h"
 #include "sispinbox.h"
-#include "helper.h"
+#include "unitToString.h"
 #include "dsostrings.h"
 
 
@@ -48,7 +48,7 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
 
     // Initialize elements
     this->samplerateLabel = new QLabel(tr("Samplerate"));
-    this->samplerateSiSpinBox = new SiSpinBox(Helper::UNIT_SAMPLES);
+    this->samplerateSiSpinBox = new SiSpinBox(UnitToString::UNIT_SAMPLES);
     this->samplerateSiSpinBox->setMinimum(1);
     this->samplerateSiSpinBox->setMaximum(1e8);
     this->samplerateSiSpinBox->setUnitPostfix("/s");
@@ -57,13 +57,13 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
     timebaseSteps << 1.0 << 2.0 << 4.0 << 10.0;
 
     this->timebaseLabel = new QLabel(tr("Timebase"));
-    this->timebaseSiSpinBox = new SiSpinBox(Helper::UNIT_SECONDS);
+    this->timebaseSiSpinBox = new SiSpinBox(UnitToString::UNIT_SECONDS);
     this->timebaseSiSpinBox->setSteps(timebaseSteps);
     this->timebaseSiSpinBox->setMinimum(1e-9);
     this->timebaseSiSpinBox->setMaximum(3.6e3);
 
     this->frequencybaseLabel = new QLabel(tr("Frequencybase"));
-    this->frequencybaseSiSpinBox = new SiSpinBox(Helper::UNIT_HERTZ);
+    this->frequencybaseSiSpinBox = new SiSpinBox(UnitToString::UNIT_HERTZ);
     this->frequencybaseSiSpinBox->setMinimum(1.0);
     this->frequencybaseSiSpinBox->setMaximum(100e6);
 
@@ -186,10 +186,10 @@ void HorizontalDock::availableRecordLengthsChanged(const std::vector<unsigned> &
         unsigned int recordLengthItem = recordLengths[index];
         if(index < (unsigned)this->recordLengthComboBox->count()) {
             this->recordLengthComboBox->setItemData(index, recordLengthItem);
-            this->recordLengthComboBox->setItemText(index, recordLengthItem == UINT_MAX ? tr("Roll") : Helper::valueToString(recordLengthItem, Helper::UNIT_SAMPLES, 3));
+            this->recordLengthComboBox->setItemText(index, recordLengthItem == UINT_MAX ? tr("Roll") : UnitToString::valueToString(recordLengthItem, UnitToString::UNIT_SAMPLES, 3));
         }
         else {
-            this->recordLengthComboBox->addItem(recordLengthItem == UINT_MAX ? tr("Roll") : Helper::valueToString(recordLengthItem, Helper::UNIT_SAMPLES, 3), (uint) recordLengthItem);
+            this->recordLengthComboBox->addItem(recordLengthItem == UINT_MAX ? tr("Roll") : UnitToString::valueToString(recordLengthItem, UnitToString::UNIT_SAMPLES, 3), (uint) recordLengthItem);
         }
     }
     // Remove extra elements
@@ -427,7 +427,7 @@ SpectrumDock::SpectrumDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wi
     this->magnitudeSteps                <<  1e0 <<  2e0 <<  3e0 <<  6e0
             <<  1e1 <<  2e1 <<  3e1 <<  6e1 <<  1e2 <<  2e2 <<  3e2 <<  6e2; ///< Magnitude steps in dB/div
     for(QList<double>::iterator magnitude = this->magnitudeSteps.begin(); magnitude != this->magnitudeSteps.end(); ++magnitude)
-        this->magnitudeStrings << Helper::valueToString(*magnitude, Helper::UNIT_DECIBEL, 0);
+        this->magnitudeStrings << UnitToString::valueToString(*magnitude, UnitToString::UNIT_DECIBEL, 0);
 
     // Initialize elements
     for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
@@ -560,7 +560,7 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     this->gainSteps             << 1e-2 << 2e-2 << 5e-2 << 1e-1 << 2e-1 << 5e-1
             <<  1e0 <<  2e0 <<  5e0;          ///< Voltage steps in V/div
     for(QList<double>::iterator gain = this->gainSteps.begin(); gain != this->gainSteps.end(); ++gain)
-        this->gainStrings << Helper::valueToString(*gain, Helper::UNIT_VOLTS, 0);
+        this->gainStrings << UnitToString::valueToString(*gain, UnitToString::UNIT_VOLTS, 0);
 
     // Initialize elements
     for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {

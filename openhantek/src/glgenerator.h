@@ -30,8 +30,8 @@
 
 #include <deque>
 #include <memory>
+#include <vector>
 
-#include <QGLWidget>
 #include <QObject>
 
 #include "parameters.h"
@@ -63,8 +63,8 @@ class GlGenerator : public QObject {
         void generateGrid();
 
     private:
-        std::vector<std::deque<std::vector<GLfloat> > > vaChannel[CHANNELMODE_COUNT];
-        std::vector<GLfloat> vaGrid[3];
+        std::vector<std::deque<std::vector<float>>> vaChannel[CHANNELMODE_COUNT];
+        std::vector<float> vaGrid[3];
         unsigned int digitalPhosphorDepth = 0;
 
     signals:

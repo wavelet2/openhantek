@@ -23,27 +23,9 @@
 
 
 #include <QCoreApplication>
-
 #include "dsostrings.h"
 
 namespace DsoStrings {
-    /// \brief Return string representation of the given channel mode.
-    /// \param mode The ::ChannelMode that should be returned as string.
-    /// \return The string that should be used in labels etc., empty when invalid.
-    QString channelModeString(ChannelMode mode) {
-        switch(mode) {
-            case CHANNELMODE_VOLTAGE:
-                return QCoreApplication::tr("Voltage");
-            case CHANNELMODE_SPECTRUM:
-                return QCoreApplication::tr("Spectrum");
-            default:
-                return QString();
-        }
-    }
-
-    /// \brief Return string representation of the given graph format.
-    /// \param format The ::GraphFormat that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString graphFormatString(GraphFormat format) {
         switch(format) {
             case GRAPHFORMAT_TY:
@@ -55,9 +37,6 @@ namespace DsoStrings {
         }
     }
 
-    /// \brief Return string representation of the given channel coupling.
-    /// \param coupling The ::Coupling that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString couplingString(Coupling coupling) {
         switch(coupling) {
             case Coupling::COUPLING_AC:
@@ -71,9 +50,6 @@ namespace DsoStrings {
         }
     }
 
-    /// \brief Return string representation of the given math mode.
-    /// \param mode The ::MathMode that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString mathModeString(MathMode mode) {
         switch(mode) {
             case MATHMODE_1ADD2:
@@ -87,9 +63,6 @@ namespace DsoStrings {
         }
     }
 
-    /// \brief Return string representation of the given trigger mode.
-    /// \param mode The ::TriggerMode that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString triggerModeString(TriggerMode mode) {
         switch(mode) {
             case TriggerMode::TRIGGERMODE_AUTO:
@@ -103,9 +76,6 @@ namespace DsoStrings {
         }
     }
 
-    /// \brief Return string representation of the given trigger slope.
-    /// \param slope The ::Slope that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString slopeString(Slope slope) {
         switch(slope) {
             case Slope::SLOPE_POSITIVE:
@@ -117,9 +87,6 @@ namespace DsoStrings {
         }
     }
 
-    /// \brief Return string representation of the given dft window function.
-    /// \param window The ::WindowFunction that should be returned as string.
-    /// \return The string that should be used in labels etc.
     QString windowFunctionString(WindowFunction window) {
         switch(window) {
             case WINDOW_RECTANGULAR:
@@ -155,61 +122,5 @@ namespace DsoStrings {
             default:
                 return QString();
         }
-    }
-
-    /// \brief Return string representation of the given graph interpolation mode.
-    /// \param interpolation The ::InterpolationMode that should be returned as string.
-    /// \return The string that should be used in labels etc.
-    QString interpolationModeString(InterpolationMode interpolation) {
-        switch(interpolation) {
-            case INTERPOLATION_OFF:
-                return QCoreApplication::tr("Off");
-            case INTERPOLATION_LINEAR:
-                return QCoreApplication::tr("Linear");
-            case INTERPOLATION_SINC:
-                return QCoreApplication::tr("Sinc");
-            default:
-                return QString();
-        }
-    }
-}
-
-#include <libusb-1.0/libusb.h>
-
-/// \brief Returns string representation for libusb errors.
-/// \param error The error code.
-/// \return String explaining the error.
-QString libUsbErrorString(int error) {
-    switch(error) {
-        case 10000:
-                return QCoreApplication::tr("Unknown model");
-        case LIBUSB_SUCCESS:
-                return QCoreApplication::tr("Success (no error)");
-        case LIBUSB_ERROR_IO:
-                return QCoreApplication::tr("Input/output error");
-        case LIBUSB_ERROR_INVALID_PARAM:
-                return QCoreApplication::tr("Invalid parameter");
-        case LIBUSB_ERROR_ACCESS:
-                return QCoreApplication::tr("Access denied (insufficient permissions)");
-        case LIBUSB_ERROR_NO_DEVICE:
-                return QCoreApplication::tr("No such device (it may have been disconnected)");
-        case LIBUSB_ERROR_NOT_FOUND:
-                return QCoreApplication::tr("Entity not found");
-        case LIBUSB_ERROR_BUSY:
-                return QCoreApplication::tr("Resource busy");
-        case LIBUSB_ERROR_TIMEOUT:
-                return QCoreApplication::tr("Operation timed out");
-        case LIBUSB_ERROR_OVERFLOW:
-                return QCoreApplication::tr("Overflow");
-        case LIBUSB_ERROR_PIPE:
-                return QCoreApplication::tr("Pipe error");
-        case LIBUSB_ERROR_INTERRUPTED:
-                return QCoreApplication::tr("System call interrupted (perhaps due to signal)");
-        case LIBUSB_ERROR_NO_MEM:
-                return QCoreApplication::tr("Insufficient memory");
-        case LIBUSB_ERROR_NOT_SUPPORTED:
-                return QCoreApplication::tr("Operation not supported or unimplemented on this platform");
-        default:
-                return QCoreApplication::tr("Other error");
     }
 }

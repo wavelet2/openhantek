@@ -3,8 +3,8 @@
 //  OpenHantek
 /// \brief Defines various constants, enums and functions for DSO settings.
 //
-//  Copyright (C) 2010  Oliver Haag
-//  oliver.haag@gmail.com
+//  Copyright (C) 2010  Oliver Haag <oliver.haag@gmail.com>
+//  Copyright (C) 2015  David Graeff <david.graeff@web.de>
 //
 //  This program is free software: you can redistribute it and/or modify it
 //  under the terms of the GNU General Public License as published by the Free
@@ -20,15 +20,10 @@
 //  this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 ////////////////////////////////////////////////////////////////////////////////
-
-
-#ifndef DSO_H
-#define DSO_H
-
+#pragma once
 
 #include <QString>
 #include "dsoSettings.h"
-#include "parameters.h"
 #include "dataAnalyzerSettings.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -37,17 +32,34 @@
 namespace DsoStrings {
     using namespace DSO;
     using namespace DSOAnalyser;
-    QString channelModeString(ChannelMode mode);
+
+    /// \brief Return string representation of the given graph format.
+    /// \param format The ::GraphFormat that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString graphFormatString(GraphFormat format);
+
+    /// \brief Return string representation of the given channel coupling.
+    /// \param coupling The ::Coupling that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString couplingString(Coupling coupling);
+
+    /// \brief Return string representation of the given math mode.
+    /// \param mode The ::MathMode that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString mathModeString(MathMode mode);
+
+    /// \brief Return string representation of the given trigger mode.
+    /// \param mode The ::TriggerMode that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString triggerModeString(TriggerMode mode);
+
+    /// \brief Return string representation of the given trigger slope.
+    /// \param slope The ::Slope that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString slopeString(Slope slope);
+
+    /// \brief Return string representation of the given dft window function.
+    /// \param window The ::WindowFunction that should be returned as string.
+    /// \return The string that should be used in labels etc.
     QString windowFunctionString(WindowFunction window);
-    QString interpolationModeString(InterpolationMode interpolation);
 }
-#include <cerrno>
-
-QString libUsbErrorString(int error);
-
-#endif

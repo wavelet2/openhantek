@@ -39,7 +39,7 @@
 #include "dataAnalyzer.h"
 #include "dsostrings.h"
 #include "glgenerator.h"
-#include "helper.h"
+#include "unitToString.h"
 #include "settings.h"
 #include "dsostrings.h"
 
@@ -125,7 +125,7 @@ bool Exporter::doExport() {
 
         // Print trigger details
         painter.setPen(colorValues->voltage[this->settings->scope.trigger.source]);
-        QString levelString = Helper::valueToString(this->settings->scope.voltage[this->settings->scope.trigger.source].trigger, Helper::UNIT_VOLTS, 3);
+        QString levelString = UnitToString::valueToString(this->settings->scope.voltage[this->settings->scope.trigger.source].trigger, UnitToString::UNIT_VOLTS, 3);
         QString pretriggerString = tr("%L1%").arg((int) (this->settings->scope.trigger.position * 100 + 0.5));
         painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight),
                          tr("%1  %2  %3  %4").arg(
@@ -138,11 +138,11 @@ bool Exporter::doExport() {
         painter.setPen(colorValues->text);
         painter.drawText(QRectF(lineHeight * 10, 0, stretchBase, lineHeight), tr("%1 S").arg(this->dataAnalyzer->sampleCount()), QTextOption(Qt::AlignRight));
         // Print samplerate
-        painter.drawText(QRectF(lineHeight * 10 + stretchBase, 0, stretchBase, lineHeight), Helper::valueToString(this->settings->scope.horizontal.samplerate, Helper::UNIT_SAMPLES) + tr("/s"), QTextOption(Qt::AlignRight));
+        painter.drawText(QRectF(lineHeight * 10 + stretchBase, 0, stretchBase, lineHeight), UnitToString::valueToString(this->settings->scope.horizontal.samplerate, UnitToString::UNIT_SAMPLES) + tr("/s"), QTextOption(Qt::AlignRight));
         // Print timebase
-        painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, 0, stretchBase, lineHeight), Helper::valueToString(this->settings->scope.horizontal.timebase, Helper::UNIT_SECONDS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
+        painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, 0, stretchBase, lineHeight), UnitToString::valueToString(this->settings->scope.horizontal.timebase, UnitToString::UNIT_SECONDS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
         // Print frequencybase
-        painter.drawText(QRectF(lineHeight * 10 + stretchBase * 3, 0, stretchBase, lineHeight), Helper::valueToString(this->settings->scope.horizontal.frequencybase, Helper::UNIT_HERTZ, 0) + tr("/div"), QTextOption(Qt::AlignRight));
+        painter.drawText(QRectF(lineHeight * 10 + stretchBase * 3, 0, stretchBase, lineHeight), UnitToString::valueToString(this->settings->scope.horizontal.frequencybase, UnitToString::UNIT_HERTZ, 0) + tr("/div"), QTextOption(Qt::AlignRight));
 
         // Draw the measurement table
         stretchBase = (double) (paintDevice->width() - lineHeight * 6) / 10;
@@ -165,16 +165,16 @@ bool Exporter::doExport() {
                                      DsoStrings::mathModeString((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc));
 
                 // Print voltage gain
-                painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), Helper::valueToString(this->settings->scope.voltage[channel].gain, Helper::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
+                painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), UnitToString::valueToString(this->settings->scope.voltage[channel].gain, UnitToString::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
                 // Print spectrum magnitude
                 painter.setPen(colorValues->spectrum[channel]);
-                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 2, top, stretchBase * 2, lineHeight), Helper::valueToString(this->settings->scope.spectrum[channel].magnitude, Helper::UNIT_DECIBEL, 0) + tr("/div"), QTextOption(Qt::AlignRight));
+                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 2, top, stretchBase * 2, lineHeight), UnitToString::valueToString(this->settings->scope.spectrum[channel].magnitude, UnitToString::UNIT_DECIBEL, 0) + tr("/div"), QTextOption(Qt::AlignRight));
 
                 // Amplitude string representation (4 significant digits)
                 painter.setPen(colorValues->text);
-                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 4, top, stretchBase * 3, lineHeight), Helper::valueToString(this->dataAnalyzer->data(channel)->amplitude, Helper::UNIT_VOLTS, 4), QTextOption(Qt::AlignRight));
+                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 4, top, stretchBase * 3, lineHeight), UnitToString::valueToString(this->dataAnalyzer->data(channel)->amplitude, UnitToString::UNIT_VOLTS, 4), QTextOption(Qt::AlignRight));
                 // Frequency string representation (5 significant digits)
-                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 7, top, stretchBase * 3, lineHeight), Helper::valueToString(this->dataAnalyzer->data(channel)->frequency, Helper::UNIT_HERTZ, 5), QTextOption(Qt::AlignRight));
+                painter.drawText(QRectF(lineHeight * 6 + stretchBase * 7, top, stretchBase * 3, lineHeight), UnitToString::valueToString(this->dataAnalyzer->data(channel)->frequency, UnitToString::UNIT_HERTZ, 5), QTextOption(Qt::AlignRight));
             }
         }
 
@@ -195,11 +195,11 @@ bool Exporter::doExport() {
 
             painter.drawText(QRectF(0, top, stretchBase, lineHeight), tr("Zoom x%L1").arg(DIVS_TIME / divs, -1, 'g', 3));
 
-            painter.drawText(QRectF(lineHeight * 10, top, stretchBase, lineHeight), Helper::valueToString(time, Helper::UNIT_SECONDS, 4), QTextOption(Qt::AlignRight));
-            painter.drawText(QRectF(lineHeight * 10 + stretchBase, top, stretchBase, lineHeight), Helper::valueToString(1.0 / time, Helper::UNIT_HERTZ, 4), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10, top, stretchBase, lineHeight), UnitToString::valueToString(time, UnitToString::UNIT_SECONDS, 4), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10 + stretchBase, top, stretchBase, lineHeight), UnitToString::valueToString(1.0 / time, UnitToString::UNIT_HERTZ, 4), QTextOption(Qt::AlignRight));
 
-            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, top, stretchBase, lineHeight), Helper::valueToString(time / DIVS_TIME, Helper::UNIT_SECONDS, 3) + tr("/div"), QTextOption(Qt::AlignRight));
-            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 3, top, stretchBase, lineHeight), Helper::valueToString(divs  * this->settings->scope.horizontal.frequencybase / DIVS_TIME, Helper::UNIT_HERTZ, 3) + tr("/div"), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, top, stretchBase, lineHeight), UnitToString::valueToString(time / DIVS_TIME, UnitToString::UNIT_SECONDS, 3) + tr("/div"), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 3, top, stretchBase, lineHeight), UnitToString::valueToString(divs  * this->settings->scope.horizontal.frequencybase / DIVS_TIME, UnitToString::UNIT_HERTZ, 3) + tr("/div"), QTextOption(Qt::AlignRight));
         }
         else {
             scopeHeight = (double) paintDevice->height() - (channelCount + 4) * lineHeight;
@@ -207,8 +207,8 @@ bool Exporter::doExport() {
 
             painter.drawText(QRectF(0, top, stretchBase, lineHeight), tr("Marker 1/2"));
 
-            painter.drawText(QRectF(lineHeight * 10, top, stretchBase * 2, lineHeight), Helper::valueToString(time, Helper::UNIT_SECONDS, 4), QTextOption(Qt::AlignRight));
-            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, top, stretchBase * 2, lineHeight), Helper::valueToString(1.0 / time, Helper::UNIT_HERTZ, 4), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10, top, stretchBase * 2, lineHeight), UnitToString::valueToString(time, UnitToString::UNIT_SECONDS, 4), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 10 + stretchBase * 2, top, stretchBase * 2, lineHeight), UnitToString::valueToString(1.0 / time, UnitToString::UNIT_HERTZ, 4), QTextOption(Qt::AlignRight));
         }
 
         // Set DIVS_TIME x DIVS_VOLTAGE matrix for oscillograph

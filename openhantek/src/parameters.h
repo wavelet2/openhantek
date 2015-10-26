@@ -19,3 +19,9 @@ enum InterpolationMode {
     INTERPOLATION_SINC,                 ///< Smooth graph through the dots
     INTERPOLATION_COUNT                 ///< Total number of interpolation modes
 };
+
+#include <QString>
+namespace DsoStrings {
+    QString channelModeString(ChannelMode mode);
+    QString interpolationModeString(InterpolationMode interpolation);
+}

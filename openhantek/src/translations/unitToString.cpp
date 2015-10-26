@@ -28,10 +28,9 @@
 #include <QLocale>
 #include <QStringList>
 
-#include "helper.h"
+#include "unitToString.h"
 
-
-namespace Helper {
+namespace UnitToString {
     /// \brief Converts double to string containing value and (prefix+)unit (Counterpart to Helper::stringToValue).
     /// \param value The value in prefixless units.
     /// \param unit The unit for the value.
@@ -98,116 +97,6 @@ namespace Helper {
             }
             default:
                 return QString();
-        }
-    }
-
-    /// \brief Converts string containing value and (prefix+)unit to double (Counterpart to Helper::valueToString).
-    /// \param text The text containing the value and its unit.
-    /// \param unit The base unit of the value.
-    /// \param ok Pointer to a success-flag, true on success, false on error.
-    /// \return Decoded value.
-    double stringToValue(const QString &text, Unit unit, bool *ok) {
-        // Check if the text is empty
-        int totalSize = text.size();
-        if(!totalSize){
-            if(ok)
-                *ok = false;
-            return 0.0;
-        }
-
-        // Split value and unit apart
-        int valueSize = 0;
-        QLocale locale;
-        bool decimalFound = false;
-        bool exponentFound = false;
-        if(text[valueSize] == locale.negativeSign())
-            ++valueSize;
-        for(; valueSize < text.size(); ++valueSize) {
-            QChar character = text[valueSize];
-
-            if(character.isDigit()) {
-            }
-            else if(character == locale.decimalPoint() && decimalFound == false && exponentFound == false) {
-                decimalFound = true;
-            }
-            else if(character == locale.exponential() && exponentFound == false) {
-                exponentFound = true;
-                if(text[valueSize + 1] == locale.negativeSign())
-                    ++valueSize;
-            }
-            else {
-                break;
-            }
-        }
-        QString valueString = text.left(valueSize);
-        bool valueOk = false;
-        double value = valueString.toDouble(&valueOk);
-        if(!valueOk) {
-            if(ok)
-                *ok = false;
-            return value;
-        }
-        QString unitString = text.right(text.size() - valueSize).trimmed();
-
-        if(ok)
-            *ok = true;
-        switch(unit) {
-            case UNIT_VOLTS: {
-                // Voltage string decoding
-                if(unitString.startsWith('\265'))
-                    return value * 1e-6;
-                else if(unitString.startsWith('m'))
-                    return value * 1e-3;
-                else
-                    return value;
-            }
-            case UNIT_DECIBEL:
-                // Power level string decoding
-                return value;
-
-            case UNIT_SECONDS:
-                // Time string decoding
-                if(unitString.startsWith('p'))
-                    return value * 1e-12;
-                else if(unitString.startsWith('n'))
-                    return value * 1e-9;
-                else if(unitString.startsWith('\265'))
-                    return value * 1e-6;
-                else if(unitString.startsWith("min"))
-                    return value * 60;
-                else if(unitString.startsWith('m'))
-                    return value * 1e-3;
-                else if(unitString.startsWith('h'))
-                    return value * 3600;
-                else
-                    return value;
-
-            case UNIT_HERTZ:
-                // Frequency string decoding
-                if(unitString.startsWith('k'))
-                    return value * 1e3;
-                else if(unitString.startsWith('M'))
-                    return value * 1e6;
-                else if(unitString.startsWith('G'))
-                    return value * 1e9;
-                else
-                    return value;
-
-            case UNIT_SAMPLES:
-                // Sample count string decoding
-                if(unitString.startsWith('k'))
-                    return value * 1e3;
-                else if(unitString.startsWith('M'))
-                    return value * 1e6;
-                else if(unitString.startsWith('G'))
-                    return value * 1e9;
-                else
-                    return value;
-
-            default:
-                if(ok)
-                    *ok = false;
-                return value;
         }
     }
 }

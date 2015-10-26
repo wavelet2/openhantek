@@ -21,13 +21,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-
-#include <QGLWidget>
 #include <QMutex>
 
-
 #include "glgenerator.h"
-
 #include "dataAnalyzer.h"
 #include "settings.h"
 
@@ -57,7 +53,7 @@ void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<D
     for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
         for(unsigned int channel = 0; channel < this->vaChannel[mode].size(); ++channel) {
             // Move the last list element to the front
-            this->vaChannel[mode][channel].push_front(std::vector<GLfloat>());
+            this->vaChannel[mode][channel].push_front(std::vector<float>());
 
             // Resize lists for vector array to fit the digital phosphor depth
             this->vaChannel[mode][channel].resize(this->digitalPhosphorDepth);
@@ -85,7 +81,7 @@ void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<D
                         this->vaChannel[mode][channel].front().resize(neededSize);
 
                         // Iterator to data for direct access
-                        std::vector<GLfloat>::iterator glIterator = this->vaChannel[mode][channel].front().begin();
+                        std::vector<float>::iterator glIterator = this->vaChannel[mode][channel].front().begin();
 
                         // What's the horizontal distance between sampling points?
                         double horizontalFactor;
@@ -141,7 +137,7 @@ void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<D
                     this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().resize(neededSize);
 
                     // Iterator to data for direct access
-                    std::vector<GLfloat>::iterator glIterator = this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().begin();
+                    std::vector<float>::iterator glIterator = this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().begin();
 
                     // Fill vector array
                     unsigned int xChannel = channel;
@@ -183,7 +179,7 @@ void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<D
 void GlGenerator::generateGrid() {
     // Grid
     this->vaGrid[0].resize(((DIVS_TIME * DIVS_SUB - 2) * (DIVS_VOLTAGE - 2) + (DIVS_VOLTAGE * DIVS_SUB - 2) * (DIVS_TIME - 2) - ((DIVS_TIME - 2) * (DIVS_VOLTAGE - 2))) * 2);
-    std::vector<GLfloat>::iterator glIterator = this->vaGrid[0].begin();
+    std::vector<float>::iterator glIterator = this->vaGrid[0].begin();
     // Draw vertical lines
     for(int div = 1; div < DIVS_TIME / 2; ++div) {
         for(int dot = 1; dot < DIVS_VOLTAGE / 2 * DIVS_SUB; ++dot) {

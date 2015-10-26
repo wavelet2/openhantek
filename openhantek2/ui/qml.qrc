@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>MainForm.ui.qml</file>
+        <file>VoltageItem.qml</file>
+        <file>SpectrumItem.qml</file>
+        <file>QuickPlot/Axes.qml</file>
+        <file>QuickPlot/AxisLabels.qml</file>
+        <file>QuickPlot/PlotArea.qml</file>
+        <file>QuickPlot/Tick.qml</file>
+        <file>collapse.png</file>
+        <file>expand.png</file>
+        <file>ExpandableItem.qml</file>
+        <file>PlotterItem.qml</file>
+        <file>preferences.png</file>
+        <file>preferences_light.png</file>
+        <file>ScopeSettingsDialog.qml</file>
+        <file>SpectrumSettingsDialog.qml</file>
+    </qresource>
+</RCC>
