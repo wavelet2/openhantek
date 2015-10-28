@@ -23,6 +23,6 @@
 #pragma once
 
 #include "deviceList.h"
-namespace Hantek {
-    void registerAllHantekProducts(DSO::DeviceList& devicelist);
+namespace Hantek2xxx_5xxx {
+    void registerHantek2xxx_5xxxProducts(DSO::DeviceList& devicelist);
 }

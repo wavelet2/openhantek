@@ -34,17 +34,34 @@
 #include <libusb-1.0/libusb.h>
 
 #include "protocol.h"
-#include "utils/containerStream.h"
 #include "hantekDevice.h"
 #include "protocol.h"
 #include "utils/timestampDebug.h"
 #include "utils/stdStringSplit.h"
 
+//#include "utils/containerStream.h"
+//std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, unsigned short int x);
+//std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x);
+//std::vector<unsigned>& operator<<(std::vector<unsigned int>& v, unsigned x);
+//std::vector<double>& operator<<(std::vector<double>& v, double x);
+
+static std::vector<double>& operator<<(std::vector<double>& v, double x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned short>& operator<<(std::vector<unsigned short>& v, unsigned short x) {
+    v.push_back(x);
+    return v;
+}
 namespace Hantek {
-std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, unsigned short int x);
-std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x);
-std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x);
-std::vector<double>& operator<<(std::vector<double>& v, double x);
 
 HantekDevice::HantekDevice(std::unique_ptr<DSO::USBCommunication> device)
     : DeviceBase(device->model()), _device(std::move(device)) {
@@ -55,11 +72,11 @@ HantekDevice::~HantekDevice() {
     _device->disconnect();
 }
 
-unsigned HantekDevice::getUniqueID() {
+unsigned HantekDevice::getUniqueID() const {
     return _device->getUniqueID();
 }
 
-bool HantekDevice::needFirmware() {
+bool HantekDevice::needFirmware() const {
     return false;
 }
 
@@ -78,7 +95,7 @@ void HantekDevice::disconnectDevice() {
     _device->disconnect();
 }
 
-bool HantekDevice::isDeviceConnected() {
+bool HantekDevice::isDeviceConnected() const {
     return _device->isConnected();
 }
 
