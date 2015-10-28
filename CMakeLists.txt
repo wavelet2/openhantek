@@ -21,11 +21,11 @@ endif()
 # Find external libraries
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/")
 
+INCLUDE_DIRECTORIES(.)
+
 # Build usb DSO lib and postprocessing lib
 add_subdirectory(libusbDSO)
-include_directories(libusbDSO)
 add_subdirectory(libPostprocessingDSO)
-include_directories(libPostprocessingDSO)
 
 # Build Hantek DSO library to support product types 2xxx-5xxx
 add_subdirectory(libOpenHantek2xxx-5xxx)
