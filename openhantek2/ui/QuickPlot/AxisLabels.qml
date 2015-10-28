@@ -1,6 +1,6 @@
 import QtQuick 2.0
 
-Rectangle {
+Item {
     id: labels
 
     property real spacing: 10
@@ -11,12 +11,11 @@ Rectangle {
     width: prototype.implicitWidth
     height: prototype.implicitHeight
 
-    property alias labelColor: prototype.tickColor
-    color: "black"
+    property color textcolor
+    property color tickcolor
 
     Tick {
         id: prototype
-        tickColor: "white"
         tickAxis: scaleEngine.axis
         text: (-100).toFixed(precision)
         visible: false
@@ -87,6 +86,8 @@ Rectangle {
                 top: tickAxis === Qt.XAxis ? labels.top : undefined
             }
 
+            textcolor: labels.textcolor
+            tickcolor: labels.tickcolor
             text: tickVal.toFixed(precision)
         }
     }

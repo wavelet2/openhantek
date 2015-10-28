@@ -26,10 +26,8 @@
 #include <QSize>
 #include <QColor>
 
-namespace DSOAnalyser {
-    class DataAnalyzer;
-    class OpenHantekSettingsScope;
-}
+#include "dataAnalyzer.h"
+#include "scopecolors.h"
 
 class QPaintDevice;
 
@@ -41,48 +39,30 @@ class Exporter : public QObject {
     Q_PROPERTY(QString filename READ getFilename WRITE setFilename)
     Q_PROPERTY(QSize imagesize READ getImagesize WRITE setImagesize)
     Q_PROPERTY(bool zoom READ getZoom WRITE setZoom)
+    Q_PROPERTY(ScopeColors* screenColors READ getScreenColors CONSTANT)
+    Q_PROPERTY(ScopeColors* printColors READ getPrintColors CONSTANT)
 
     public:
-        Exporter(DSOAnalyser::OpenHantekSettingsScope* scope, DSOAnalyser::DataAnalyzer *dataAnalyzer, QWidget *parent = 0);
+        Exporter(DSOAnalyser::OpenHantekSettingsScope* scope, QWidget *parent = 0);
 
+        void createDataCopy(DSOAnalyser::DataAnalyzer *dataAnalyzer);
         void setFilename(QString filename);
         QString getFilename() const { return m_filename; }
         QSize getImagesize() const { return m_size; }
         void setImagesize(const QSize& size) { m_size = size; }
         bool getZoom() const { return m_zoom; }
         void setZoom(const bool zoom) { m_zoom = zoom; }
+        ScopeColors* getScreenColors() { return &m_screen; }
+        ScopeColors* getPrintColors() { return &m_print; }
 
         Q_INVOKABLE void print();
         Q_INVOKABLE void exportToImage();
         Q_INVOKABLE void exportToCSV();
-
-        ////////////////////////////////////////////////////////////////////////////////
-        /// \struct OpenHantekSettingsColorValues                                    settings.h
-        /// \brief Holds the color values for the oscilloscope screen.
-        struct OpenHantekSettingsColorValues {
-            QColor axes; ///< X- and Y-axis and subdiv lines on them
-            QColor background; ///< The scope background
-            QColor border; ///< The border of the scope screen
-            QColor grid; ///< The color of the grid
-            QColor markers; ///< The color of the markers
-            QList<QColor> spectrum; ///< The colors of the spectrum graphs
-            QColor text; ///< The default text color
-            QList<QColor> voltage; ///< The colors of the voltage graphs
-        };
-
-        ////////////////////////////////////////////////////////////////////////////////
-        /// \struct OpenHantekSettingsViewColor                                      settings.h
-        /// \brief Holds the settings for the used colors on the screen and on paper.
-        struct OpenHantekSettingsViewColor {
-            OpenHantekSettingsColorValues screen; ///< Colors for the screen
-            OpenHantekSettingsColorValues print; ///< Colors for printout
-        };
-
     private:
-        void draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *colorValues, bool forPrint);
+        void draw(QPaintDevice *paintDevice, const ScopeColors& colorValues, bool forPrint);
 
         DSOAnalyser::OpenHantekSettingsScope *scope;
-        DSOAnalyser::DataAnalyzer *dataAnalyzer;
+        std::vector<DSOAnalyser::AnalyzedData> m_analyzedData;
 
         QString m_filename;
         QSize m_size = QSize(150,150);
@@ -91,5 +71,6 @@ class Exporter : public QObject {
         double DIVS_VOLTAGE = 8.0; ///< Number of vertical screen divs
         unsigned DIVS_SUB     = 5; ///< Number of sub-divisions per div
 
-        OpenHantekSettingsViewColor m_colors;
+        ScopeColors m_screen; ///< Colors for the screen
+        ScopeColors m_print; ///< Colors for printout
 };

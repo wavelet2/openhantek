@@ -7,6 +7,7 @@ ColumnLayout {
     id: item
     anchors.left: parent.left
     anchors.right: parent.right
+    clip: true
 
     property alias title: btnHeader.text
     property string collapseImage: "qrc:/collapse.png"
@@ -15,56 +16,24 @@ ColumnLayout {
     property bool hasSettings: false
     property alias btnPreferences: btnPreferences
 
-    onContentVisibleChanged: {
-        var a = item.children;
-        for (var c in a) {
-            if (item.children[c]===btnRow) continue;
-            item.children[c].visible = contentVisible;
-        }
+    Layout.preferredHeight: implicitHeight
+    states: State {
+        name: "only_header"
+        when: !contentVisible
+        PropertyChanges { target: item; Layout.preferredHeight: btnRow.height }
     }
 
-    Component.onCompleted: {
-        var a = item.children;
-        for (var c in a) {
-            if (item.children[c]===btnRow) continue;
-            item.children[c].visible = contentVisible;
+    Behavior on Layout.preferredHeight {
+        NumberAnimation {
+            id: bouncebehavior
+            duration: 300
+            easing {
+                type: Easing.OutCubic
+                amplitude: 1.0
+                period: 0.5
+            }
         }
     }
-
-//    states: [
-//        State {
-//         name: "show"
-//         when: contentVisible
-//         PropertyChanges {
-//             target: screen
-//             x: 0
-//             opacity:1
-//         }
-//        },
-//        State {
-//         name: "hide"
-//         when: !contentVisible
-//         PropertyChanges {
-//             target: screen
-//             opacity:0
-//         }
-//        }
-//    ]
-
-//    transitions: [
-//        Transition {
-//         from:"hide"
-//         to:"show"
-//         NumberAnimation { properties: "x"; duration:500}
-//         NumberAnimation { properties: "opacity"; duration: 700 }
-//        },
-//        Transition {
-//         //from: "show"
-//         to: "hide"
-//         NumberAnimation { properties: "x"; duration:500}
-//         NumberAnimation { properties: "opacity"; duration: 700 }
-//        }
-//    ]
 
     RowLayout {
         anchors.left: parent.left

@@ -4,14 +4,19 @@ import QuickPlot 1.0
 import "qrc:QuickPlot"
 //import kde.Plotter 2.0
 
-Rectangle {
+Item {
     id: rectangle
-    color: "black"
 
     property alias btnPreferences: btnPreferences
 
     PlotArea {
         anchors.fill: parent
+        color: screenColors.background
+        borderColor: screenColors.border
+        gridColor: screenColors.grid
+        markersColor: screenColors.markers
+        textColor: screenColors.text
+        axesColor: screenColors.axes
 
         yScaleEngine: ScaleEngine {
             fixed: true
@@ -26,28 +31,6 @@ Rectangle {
                 color: "red"
             }
         ]
-    }
-
-    Canvas {
-        anchors.fill: parent
-
-        contextType: "2d"
-
-        Path {
-            id: myPath
-            startX: 0; startY: 100
-
-            PathCurve { x: 75; y: 75 }
-            PathCurve { x: 200; y: 150 }
-            PathCurve { x: 325; y: 25 }
-            PathCurve { x: 400; y: 100 }
-        }
-
-        onPaint: {
-            context.strokeStyle = Qt.rgba(.4,.6,.8);
-            context.path = myPath;
-            context.stroke();
-        }
     }
 
     Timer {

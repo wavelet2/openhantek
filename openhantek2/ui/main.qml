@@ -29,14 +29,22 @@ ApplicationWindow {
         Menu {
             title: qsTr("&OpenHantek")
             MenuItem {
+                text: qsTr("Select &Device")
+                shortcut: "Ctrl+D"
+                onTriggered: currentDevice.resetDevice()
+                enabled: currentDevice.valid
+            }
+            MenuItem {
                 text: qsTr("&Print")
                 shortcut: "Ctrl+P"
-                onTriggered: messageDialog.show(qsTr("To be implemented"));
+                onTriggered: exportDialog.open();
+                enabled: currentDevice.valid
             }
             MenuItem {
                 text: qsTr("&Export as...")
                 shortcut: "Ctrl+E"
-                onTriggered: messageDialog.show(qsTr("To be implemented"));
+                onTriggered: exportDialog.open();
+                enabled: currentDevice.valid
             }
             MenuSeparator { }
             MenuItem {
@@ -65,29 +73,21 @@ ApplicationWindow {
     }
     MainForm {
         id: main
-        //var texto = qsTr("6022BL")
         anchors.fill: parent
-        //button2.onClicked:
-        //{
-            //text: qsTr("6022BL")
-            //messageDialog.show(qsTr("Button 2 pressed"))
-        //    window.qmlSearchDevices("6022BL");
-        //}
+        visible: currentDevice.valid
     }
 
-    MessageDialog {
-        id: messageDialog
-        title: qsTr("May I have your attention, please?")
-        function show(caption) {
-            messageDialog.text = caption;
-            messageDialog.open();
+    DeviceList {
+        id: deviceList
+        width: 200
+        height: 200
+        anchors {
+            centerIn: parent
         }
+        visible: !currentDevice.valid
+    }
+
+    ExportDialog {
+        id: exportDialog
     }
 }
-/**
-signals:
-    void deviceConnected(HT6022_ErrorTypeDef errorCode);
-    void deviceReady(HT6022_ErrorTypeDef errorCode);
-    void sendDevicesInfo(QList<HT6022BX_Info> *DeviceName);
-    qml slots:
-**/

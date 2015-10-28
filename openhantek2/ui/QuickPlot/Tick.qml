@@ -2,7 +2,8 @@ import QtQuick 2.0
 
 Item {
     property real tickLength: 10
-    property alias tickColor: tick.color
+    property alias textcolor: label.color
+    property alias tickcolor: tick.color
     property alias text: label.text
     property alias font: label.font
 
@@ -23,7 +24,7 @@ Item {
         id: tick
         height: (tickAxis === Qt.XAxis) ? tickLength : 1
         width: (tickAxis === Qt.YAxis) ? tickLength : 1
-        color: "white"
+        color: tick.color
 
         anchors {
             verticalCenter: (tickAxis === Qt.YAxis) ? label.verticalCenter : undefined
@@ -38,7 +39,6 @@ Item {
         id: label
         width: implicitWidth
         height: implicitHeight
-        color: tick.color
         anchors {
             right: (tickAxis === Qt.YAxis) ? tick.left : undefined
             rightMargin: 5

@@ -1,13 +1,20 @@
 import QtQuick 2.0
 import QuickPlot 1.0
 
-Item {
+Rectangle {
     width: 400
     height: 300
 
     property alias hasXTicks: xlabels.visible
     property alias hasYTicks: ylabels.visible
     property alias axes: axes
+
+    color: "black"
+    property color borderColor: "white"
+    property color gridColor: "white"
+    property color markersColor: "white"
+    property color textColor: "white"
+    property color axesColor: Qt.rgba(0.5, 0.5, 0.5, 0.5)
 
     property var xScaleEngine: ScaleEngine {
         axis: Qt.XAxis
@@ -29,7 +36,8 @@ Item {
     AxisLabels {
         id: ylabels
         scaleEngine: yScaleEngine
-
+        textcolor: parent.textColor
+        tickcolor: axesColor
         anchors {
             top: parent.top
             left: parent.left
@@ -40,7 +48,8 @@ Item {
     AxisLabels {
         id: xlabels
         scaleEngine: xScaleEngine
-
+        textcolor: parent.textColor
+        tickcolor: axesColor
         anchors {
             left: ylabels.right
             right: parent.right
@@ -52,7 +61,8 @@ Item {
         id: axes
         xScaleEngine: parent.xScaleEngine
         yScaleEngine: parent.yScaleEngine
-
+        borderColor: parent.borderColor
+        zeroLineColor: parent.axesColor
         anchors {
             left: ylabels.right;
             right: parent.right;

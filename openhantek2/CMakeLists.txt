@@ -8,10 +8,6 @@ find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5OpenGL REQUIRED)
 find_package(OpenGL)
 
-# OpenGL dispatch library -> OpenGL, GLES usuable.
-# http://github.com/anholt/libepoxy
-find_package(epoxy)
-
 #find_package(Qt5QuickCompiler)
 #qtquick_compiler_add_resources(RESOURCES qml.qrc)
 
@@ -39,8 +35,8 @@ add_definitions(-DVERSION="${VERSION}")
 # make executable
 add_executable(${PROJECT_NAME} ${SRC} ${HEADERS} ${QRC} ${RESOURCES} ${UI})
 target_link_libraries(${PROJECT_NAME} Qt5::Quick Qt5::PrintSupport Qt5::OpenGL
-    libusbDSO libOpenHantek2xxx-5xxx libPostprocessingDSO
-    ${OPENGL_LIBRARIES} epoxy::epoxy quickplotqmlplugin)
+    libusbDSO libOpenHantek2xxx-5xxx libOpenHantek60xx libPostprocessingDSO
+    ${OPENGL_LIBRARIES} quickplotqmlplugin)
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 
 # install commands

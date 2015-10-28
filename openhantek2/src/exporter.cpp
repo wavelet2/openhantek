@@ -43,8 +43,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 // class HorizontalDock
 /// \brief Initializes the printer object.
-Exporter::Exporter(DSOAnalyser::OpenHantekSettingsScope* scope, DSOAnalyser::DataAnalyzer *dataAnalyzer, QWidget *parent)
-    : QObject(parent), scope(scope), dataAnalyzer(dataAnalyzer) {
+Exporter::Exporter(DSOAnalyser::OpenHantekSettingsScope* scope, QWidget *parent)
+    : QObject(parent), scope(scope), m_screen("screen"), m_print("print") {
+}
+
+void Exporter::createDataCopy(DSOAnalyser::DataAnalyzer* dataAnalyzer) {
+    dataAnalyzer->mutex().lock();
+    m_analyzedData = dataAnalyzer->getAllData();
+    dataAnalyzer->mutex().unlock();
 }
 
 /// \brief Set the filename of the output file (Not used for printing).
@@ -68,24 +74,20 @@ void Exporter::print() {
     }
 
     paintDevice->setOutputFileName(m_filename);
-    this->dataAnalyzer->mutex().lock();
-    draw(paintDevice, &(m_colors.print), true);
-    this->dataAnalyzer->mutex().unlock();
+    draw(paintDevice, m_print, true);
     delete paintDevice;
 }
 
 void Exporter::exportToImage() {
     QPixmap* paintDevice = new QPixmap(m_size);
-    paintDevice->fill(m_colors.screen.background);
-    this->dataAnalyzer->mutex().lock();
-    draw(paintDevice, &(m_colors.screen), false);
-    this->dataAnalyzer->mutex().unlock();
+    paintDevice->fill(m_screen.background);
+    draw(paintDevice, m_screen, false);
     paintDevice->save(m_filename);
     delete paintDevice;
 }
 
 /// \brief Print the document (May be a file too)
-void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *colorValues, bool forPrint) {
+void Exporter::draw(QPaintDevice *paintDevice, const ScopeColors& colorValues, bool forPrint) {
 
     // Create a painter for our device
     QPainter painter(paintDevice);
@@ -101,7 +103,7 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
     double stretchBase = (double) (paintDevice->width() - lineHeight * 10) / 4;
 
     // Print trigger details
-    painter.setPen(colorValues->voltage[scope->trigger.source]);
+    painter.setPen(colorValues.voltage[scope->trigger.source]);
     QString levelString = UnitToString::valueToString(scope->voltage[scope->trigger.source].trigger, UnitToString::UNIT_VOLTS, 3);
     QString pretriggerString = tr("%L1%").arg((int) (scope->trigger.position * 100 + 0.5));
     painter.drawText(QRectF(0, 0, lineHeight * 10, lineHeight),
@@ -111,9 +113,11 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
                         levelString,
                         pretriggerString));
 
+    int maxSamples = m_analyzedData.at(0).samples.voltage.sample.size();
+
     // Print sample count
-    painter.setPen(colorValues->text);
-    painter.drawText(QRectF(lineHeight * 10, 0, stretchBase, lineHeight), tr("%1 S").arg(this->dataAnalyzer->sampleCount()), QTextOption(Qt::AlignRight));
+    painter.setPen(colorValues.text);
+    painter.drawText(QRectF(lineHeight * 10, 0, stretchBase, lineHeight), tr("%1 S").arg(maxSamples), QTextOption(Qt::AlignRight));
     // Print samplerate
     painter.drawText(QRectF(lineHeight * 10 + stretchBase, 0, stretchBase, lineHeight), UnitToString::valueToString(scope->horizontal.samplerate, UnitToString::UNIT_SAMPLES) + tr("/s"), QTextOption(Qt::AlignRight));
     // Print timebase
@@ -124,13 +128,13 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
     // Draw the measurement table
     stretchBase = (double) (paintDevice->width() - lineHeight * 6) / 10;
     int channelCount = 0;
-    for(int channel = scope->voltage.size() - 1; channel >= 0; channel--) {
-        if((scope->voltage[channel].used || scope->spectrum[channel].used) && this->dataAnalyzer->data(channel)) {
+    for(unsigned channel = scope->voltage.size() - 1; channel >= 0; channel--) {
+        if((scope->voltage[channel].used || scope->spectrum[channel].used) && m_analyzedData.size()>channel) {
             ++channelCount;
             double top = (double) paintDevice->height() - channelCount * lineHeight;
 
             // Print label
-            painter.setPen(colorValues->voltage[channel]);
+            painter.setPen(colorValues.voltage[channel]);
             painter.drawText(QRectF(0, top, lineHeight * 4, lineHeight),
                                 QString::fromStdString(scope->voltage[channel].name));
             // Print coupling/math mode
@@ -144,21 +148,21 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
             // Print voltage gain
             painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), UnitToString::valueToString(scope->voltage[channel].gain, UnitToString::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
             // Print spectrum magnitude
-            painter.setPen(colorValues->spectrum[channel]);
+            painter.setPen(colorValues.spectrum[channel]);
             painter.drawText(QRectF(lineHeight * 6 + stretchBase * 2, top, stretchBase * 2, lineHeight), UnitToString::valueToString(scope->spectrum[channel].magnitude, UnitToString::UNIT_DECIBEL, 0) + tr("/div"), QTextOption(Qt::AlignRight));
 
             // Amplitude string representation (4 significant digits)
-            painter.setPen(colorValues->text);
-            painter.drawText(QRectF(lineHeight * 6 + stretchBase * 4, top, stretchBase * 3, lineHeight), UnitToString::valueToString(this->dataAnalyzer->data(channel)->amplitude, UnitToString::UNIT_VOLTS, 4), QTextOption(Qt::AlignRight));
+            painter.setPen(colorValues.text);
+            painter.drawText(QRectF(lineHeight * 6 + stretchBase * 4, top, stretchBase * 3, lineHeight), UnitToString::valueToString(m_analyzedData.at(channel).amplitude, UnitToString::UNIT_VOLTS, 4), QTextOption(Qt::AlignRight));
             // Frequency string representation (5 significant digits)
-            painter.drawText(QRectF(lineHeight * 6 + stretchBase * 7, top, stretchBase * 3, lineHeight), UnitToString::valueToString(this->dataAnalyzer->data(channel)->frequency, UnitToString::UNIT_HERTZ, 5), QTextOption(Qt::AlignRight));
+            painter.drawText(QRectF(lineHeight * 6 + stretchBase * 7, top, stretchBase * 3, lineHeight), UnitToString::valueToString(m_analyzedData.at(channel).frequency, UnitToString::UNIT_HERTZ, 5), QTextOption(Qt::AlignRight));
         }
     }
 
     // Draw the marker table
     double scopeHeight;
     stretchBase = (double) (paintDevice->width() - lineHeight * 10) / 4;
-    painter.setPen(colorValues->text);
+    painter.setPen(colorValues.text);
 
     // Calculate variables needed for zoomed scope
     double divs = fabs(scope->horizontal.marker[1] - scope->horizontal.marker[0]);
@@ -200,11 +204,11 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
             case DSOAnalyser::GRAPHFORMAT_TY:
                 // Add graphs for channels
                 for(unsigned channel = 0 ; channel < scope->voltage.size(); ++channel) {
-                    if(scope->voltage[channel].used && this->dataAnalyzer->data(channel)) {
-                        painter.setPen(colorValues->voltage[channel]);
+                    if(scope->voltage[channel].used && m_analyzedData.size()>channel) {
+                        painter.setPen(colorValues.voltage[channel]);
 
                         // What's the horizontal distance between sampling points?
-                        double horizontalFactor = this->dataAnalyzer->data(channel)->samples.voltage.interval / scope->horizontal.timebase;
+                        double horizontalFactor = m_analyzedData.at(channel).samples.voltage.interval / scope->horizontal.timebase;
                         // How many samples are visible?
                         double centerPosition, centerOffset;
                         if(zoomed) {
@@ -216,13 +220,13 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
                             centerOffset = DIVS_TIME / horizontalFactor / 2;
                         }
                         unsigned int firstPosition = qMax((int) (centerPosition - centerOffset), 0);
-                        unsigned int lastPosition = qMin((int) (centerPosition + centerOffset), (int) this->dataAnalyzer->data(channel)->samples.voltage.sample.size() - 1);
+                        unsigned int lastPosition = qMin((int) (centerPosition + centerOffset), (int) m_analyzedData.at(channel).samples.voltage.sample.size() - 1);
 
                         // Draw graph
                         QPointF *graph = new QPointF[lastPosition - firstPosition + 1];
 
                         for(unsigned int position = firstPosition; position <= lastPosition; ++position)
-                            graph[position - firstPosition] = QPointF(position * horizontalFactor - DIVS_TIME / 2, this->dataAnalyzer->data(channel)->samples.voltage.sample[position] / scope->voltage[channel].gain + scope->voltage[channel].offset);
+                            graph[position - firstPosition] = QPointF(position * horizontalFactor - DIVS_TIME / 2, m_analyzedData.at(channel).samples.voltage.sample[position] / scope->voltage[channel].gain + scope->voltage[channel].offset);
 
                         painter.drawPolyline(graph, lastPosition - firstPosition + 1);
                         delete[] graph;
@@ -231,11 +235,11 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
 
                 // Add spectrum graphs
                 for (unsigned channel = 0; channel < scope->spectrum.size(); ++channel) {
-                    if(scope->spectrum[channel].used && this->dataAnalyzer->data(channel)) {
-                        painter.setPen(colorValues->spectrum[channel]);
+                    if(scope->spectrum[channel].used && m_analyzedData.size()>channel) {
+                        painter.setPen(colorValues.spectrum[channel]);
 
                         // What's the horizontal distance between sampling points?
-                        double horizontalFactor = this->dataAnalyzer->data(channel)->samples.spectrum.interval / scope->horizontal.frequencybase;
+                        double horizontalFactor = m_analyzedData.at(channel).samples.spectrum.interval / scope->horizontal.frequencybase;
                         // How many samples are visible?
                         double centerPosition, centerOffset;
                         if(zoomed) {
@@ -247,13 +251,13 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
                             centerOffset = DIVS_TIME / horizontalFactor / 2;
                         }
                         unsigned int firstPosition = qMax((int) (centerPosition - centerOffset), 0);
-                        unsigned int lastPosition = qMin((int) (centerPosition + centerOffset), (int) this->dataAnalyzer->data(channel)->samples.spectrum.sample.size() - 1);
+                        unsigned int lastPosition = qMin((int) (centerPosition + centerOffset), (int) m_analyzedData.at(channel).samples.spectrum.sample.size() - 1);
 
                         // Draw graph
                         QPointF *graph = new QPointF[lastPosition - firstPosition + 1];
 
                         for(unsigned int position = firstPosition; position <= lastPosition; ++position)
-                            graph[position - firstPosition] = QPointF(position * horizontalFactor - DIVS_TIME / 2, this->dataAnalyzer->data(channel)->samples.spectrum.sample[position] / scope->spectrum[channel].magnitude + scope->spectrum[channel].offset);
+                            graph[position - firstPosition] = QPointF(position * horizontalFactor - DIVS_TIME / 2, m_analyzedData.at(channel).samples.spectrum.sample[position] / scope->spectrum[channel].magnitude + scope->spectrum[channel].offset);
 
                         painter.drawPolyline(graph, lastPosition - firstPosition + 1);
                         delete[] graph;
@@ -279,7 +283,7 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
         painter.setMatrix(QMatrix((paintDevice->width() - 1) / DIVS_TIME, 0, 0, -(scopeHeight - 1) / DIVS_VOLTAGE, (double) (paintDevice->width() - 1) / 2, (scopeHeight - 1) * (zoomed + 0.5) + lineHeight * 1.5 + lineHeight * 2.5 * zoomed), false);
 
         // Grid lines
-        painter.setPen(colorValues->grid);
+        painter.setPen(colorValues.grid);
 
         if(forPrint) {
             // Draw vertical lines
@@ -325,7 +329,7 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
         }
 
         // Axes
-        painter.setPen(colorValues->axes);
+        painter.setPen(colorValues.axes);
         painter.drawLine(QPointF(-DIVS_TIME / 2, 0), QPointF(DIVS_TIME / 2, 0));
         painter.drawLine(QPointF(0, -DIVS_VOLTAGE / 2), QPointF(0, DIVS_VOLTAGE / 2));
         for(double div = 0.2; div <= DIVS_TIME / 2; div += 0.2) {
@@ -338,7 +342,7 @@ void Exporter::draw(QPaintDevice *paintDevice, OpenHantekSettingsColorValues *co
         }
 
         // Borders
-        painter.setPen(colorValues->border);
+        painter.setPen(colorValues.border);
         painter.drawRect(QRectF(-DIVS_TIME / 2, -DIVS_VOLTAGE / 2, DIVS_TIME, DIVS_VOLTAGE));
     }
 
@@ -353,30 +357,30 @@ void Exporter::exportToCSV() {
     QTextStream csvStream(&csvFile);
 
     for(unsigned channel = 0 ; channel < scope->voltage.size(); ++channel) {
-        if(this->dataAnalyzer->data(channel)) {
-            if(scope->voltage[channel].used) {
-                // Start with channel name and the sample interval
-                csvStream << "\"" << QString::fromStdString(scope->voltage[channel].name) << "\"," << this->dataAnalyzer->data(channel)->samples.voltage.interval;
+        if(m_analyzedData.size()<=channel) continue;
 
-                // And now all sample values in volts
-                for(unsigned int position = 0; position < this->dataAnalyzer->data(channel)->samples.voltage.sample.size(); ++position)
-                    csvStream << "," << this->dataAnalyzer->data(channel)->samples.voltage.sample[position];
+        if(scope->voltage[channel].used) {
+            // Start with channel name and the sample interval
+            csvStream << "\"" << QString::fromStdString(scope->voltage[channel].name) << "\"," << m_analyzedData.at(channel).samples.voltage.interval;
 
-                // Finally a newline
-                csvStream << '\n';
-            }
+            // And now all sample values in volts
+            for(unsigned int position = 0; position < m_analyzedData.at(channel).samples.voltage.sample.size(); ++position)
+                csvStream << "," << m_analyzedData.at(channel).samples.voltage.sample[position];
 
-            if(scope->spectrum[channel].used) {
-                // Start with channel name and the sample interval
-                csvStream << "\"" << QString::fromStdString(scope->spectrum[channel].name) << "\"," << this->dataAnalyzer->data(channel)->samples.spectrum.interval;
+            // Finally a newline
+            csvStream << '\n';
+        }
 
-                // And now all magnitudes in dB
-                for(unsigned int position = 0; position < this->dataAnalyzer->data(channel)->samples.spectrum.sample.size(); ++position)
-                    csvStream << "," << this->dataAnalyzer->data(channel)->samples.spectrum.sample[position];
+        if(scope->spectrum[channel].used) {
+            // Start with channel name and the sample interval
+            csvStream << "\"" << QString::fromStdString(scope->spectrum[channel].name) << "\"," << m_analyzedData.at(channel).samples.spectrum.interval;
 
-                // Finally a newline
-                csvStream << '\n';
-            }
+            // And now all magnitudes in dB
+            for(unsigned int position = 0; position < m_analyzedData.at(channel).samples.spectrum.sample.size(); ++position)
+                csvStream << "," << m_analyzedData.at(channel).samples.spectrum.sample[position];
+
+            // Finally a newline
+            csvStream << '\n';
         }
     }
     csvFile.close();

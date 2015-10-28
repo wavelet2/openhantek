@@ -16,5 +16,8 @@
         <file>preferences_light.png</file>
         <file>ScopeSettingsDialog.qml</file>
         <file>SpectrumSettingsDialog.qml</file>
+        <file>ExportDialog.qml</file>
+        <file>DeviceList.qml</file>
+        <file>Scrollbar.qml</file>
     </qresource>
 </RCC>

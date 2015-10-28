@@ -12,7 +12,6 @@ Item {
     anchors.margins: 10
 
     property int label_width: 100
-    //property alias meter: meter
 
     Flickable {
         id: flick

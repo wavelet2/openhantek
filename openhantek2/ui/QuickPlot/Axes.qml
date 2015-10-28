@@ -1,15 +1,13 @@
 import QtQuick 2.0
 
-Rectangle {
+Item {
     property var xScaleEngine
     property var yScaleEngine
-    property color borderColor: "white"
-    property color zeroLineColor: Qt.rgba(0.5, 0.5, 0.5, 0.5)
+    property color borderColor
+    property color zeroLineColor
 
     property alias hasXZeroLine: xzeroline.visible
     property alias hasYZeroLine: yzeroline.visible
-
-    color: "black"
 
     Rectangle {
         width: 1
