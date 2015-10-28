@@ -39,21 +39,34 @@ class DeviceList {
          */
         void addDevice(DeviceBase* device);
 
+        /**
+          * Return the device with the given device unique id.
+          */
+        std::shared_ptr<DeviceBase> getDeviceByUID(unsigned uid);
+
         /// Get list of devices. This is a vector of unique pointers
         /// -> You are not allowed to copy this vector.
-        const std::vector<std::unique_ptr<DeviceBase>>& getList() const;
+        const std::vector<std::shared_ptr<DeviceBase>>& getList() const;
+
+        /// Get list of known models.
+        const std::vector<DSODeviceDescription> getKnownModels() const;
 
         void hotplugAdd(libusb_device *device);
         void hotplugRemove(libusb_device *device);
 
+        /// To be called periodically so that hotplug events work
+        void checkForDevices() const;
+
         /// Signal: list has changed
         std::function<void(void)> _listChanged = [](){};
+        /// Signal: supported models changed
+        std::function<void(void)> _modelsChanged = [](){};
 private:
-    std::vector<std::unique_ptr<DeviceBase>> _deviceList;
+    std::vector<std::shared_ptr<DeviceBase>> _deviceList;
     std::vector<DSODeviceDescription> _registeredModels;
     bool _autoUpdate = false;
     libusb_context* _usb_context = nullptr;
-    int _callback_handles[2] = {0};
+    int _callback_handle = 0;
 };
 
 }

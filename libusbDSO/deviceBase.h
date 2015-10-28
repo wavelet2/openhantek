@@ -99,7 +99,7 @@ class DeviceBase : public DeviceBaseSamples {
         /// \brief Set the trigger mode.
         /// \return True if a firmware upload is necessary. connectDevice() will fail if this
         ///         method return true.
-        virtual bool needFirmware() = 0;
+        virtual bool needFirmware() const = 0;
 
         /// \brief Upload firmware to the DSO. If no firmware is required (needFirmware==false)
         ///        this method will return ERROR_NONE. It can only be called if no connection
@@ -116,10 +116,10 @@ class DeviceBase : public DeviceBaseSamples {
 
         /// \brief A unique id that is important for the DeviceList to identify already
         /// connected devices. For usb devices this is the bus/slot number.
-        virtual unsigned getUniqueID() = 0;
+        virtual unsigned getUniqueID() const = 0;
 
         /// \return Return true if a connection to the device (e.g. usb device) is established.
-        virtual bool isDeviceConnected() = 0;
+        virtual bool isDeviceConnected() const = 0;
 
         /// \brief Try to connect to the oscilloscope. For usb devices this will open the usb interface.
         virtual void connectDevice() = 0;

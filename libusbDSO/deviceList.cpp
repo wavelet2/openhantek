@@ -17,6 +17,7 @@ DeviceList::~DeviceList() {
 
 void DeviceList::registerModel(const DSODeviceDescription& model) {
     _registeredModels.push_back(model);
+    _modelsChanged();
 }
 
 int hotplug_callback_fn(libusb_context *ctx, libusb_device *device, libusb_hotplug_event event, void *user_data) {
@@ -31,7 +32,7 @@ int hotplug_callback_fn(libusb_context *ctx, libusb_device *device, libusb_hotpl
 void DeviceList::hotplugAdd(libusb_device *device) {
     uint8_t uniqueID = libusb_get_port_number(device);
     // Check if device is connected and known already
-    for(auto itr = _deviceList.begin(); itr != _deviceList.end();) {
+    for(auto itr = _deviceList.begin(); itr != _deviceList.end();++itr) {
         if (itr->get()->getUniqueID() == uniqueID) {
             return;
         }
@@ -55,9 +56,13 @@ void DeviceList::hotplugAdd(libusb_device *device) {
         break;
     }
 
-    std::cout << "Found device at " << libusb_get_bus_number(device) << " " << libusb_get_device_address(device) << std::endl;
-
     if (!foundModel) return;
+
+    std::cout << "Found device at "
+              << (unsigned)libusb_get_bus_number(device)
+              << " " << (unsigned)libusb_get_device_address(device)
+              << " " << foundModel->modelName
+              << " " << foundModel->need_firmware << std::endl;
 
     // Add device
     DeviceBase* d = foundModel->createDevice(device, *foundModel);
@@ -79,35 +84,34 @@ void DeviceList::hotplugRemove(libusb_device *device) {
         _listChanged();
 }
 
+void DeviceList::checkForDevices() const
+{
+    struct timeval t = {0};
+    libusb_handle_events_timeout_completed(nullptr, &t, nullptr);
+}
+
 void DeviceList::setAutoUpdate(bool autoUpdate) {
     // Unregister callback before doing anything else
-    if (_autoUpdate && _callback_handles[0]) {
-        libusb_hotplug_deregister_callback(_usb_context, _callback_handles[0]);
-        libusb_hotplug_deregister_callback(_usb_context, _callback_handles[1]);
-        _callback_handles[0] = 0;
-        _callback_handles[1] = 0;
+    if (_autoUpdate && _callback_handle) {
+        libusb_hotplug_deregister_callback(nullptr, _callback_handle);
+        _callback_handle = 0;
     }
     _autoUpdate = autoUpdate;
     if (_autoUpdate) {
-        libusb_hotplug_register_callback(_usb_context,
-                                         LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED,
+        int err;
+        err = libusb_hotplug_register_callback(nullptr,
+                                         libusb_hotplug_event(LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED|LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT),
                                          libusb_hotplug_flag(0), // no flags
                                          LIBUSB_HOTPLUG_MATCH_ANY, // vendor
                                          LIBUSB_HOTPLUG_MATCH_ANY, // product
                                          LIBUSB_HOTPLUG_MATCH_ANY, // usb device class
                                          hotplug_callback_fn,
                                          this,
-                                         &_callback_handles[0]);
+                                         &_callback_handle);
 
-        libusb_hotplug_register_callback(_usb_context,
-                                         LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
-                                         libusb_hotplug_flag(0), // no flags
-                                         LIBUSB_HOTPLUG_MATCH_ANY, // vendor
-                                         LIBUSB_HOTPLUG_MATCH_ANY, // product
-                                         LIBUSB_HOTPLUG_MATCH_ANY, // usb device class
-                                         hotplug_callback_fn,
-                                         this,
-                                         &_callback_handles[1]);
+        if (err != LIBUSB_SUCCESS) {
+            std::cerr << libusb_error_name(err) << " on register hotplug add" << std::endl;
+        }
     }
 }
 
@@ -133,12 +137,26 @@ int DeviceList::update() {
 }
 
 void DeviceList::addDevice(DeviceBase* device) {
-    _deviceList.push_back(std::unique_ptr<DeviceBase>(device));
+    _deviceList.push_back(std::shared_ptr<DeviceBase>(device));
     _listChanged();
 }
 
-const std::vector<std::unique_ptr<DeviceBase>>& DeviceList::getList() const {
+std::shared_ptr<DeviceBase> DeviceList::getDeviceByUID(unsigned uid)
+{
+    for (std::shared_ptr<DSO::DeviceBase>& device: _deviceList) {
+        if (device->getUniqueID() == uid)
+            return device;
+    }
+    return nullptr;
+}
+
+const std::vector<std::shared_ptr<DeviceBase> >& DeviceList::getList() const {
     return _deviceList;
+}
+
+const std::vector<DSODeviceDescription> DeviceList::getKnownModels() const
+{
+    return _registeredModels;
 }
 
 }

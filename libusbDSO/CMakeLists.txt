@@ -9,10 +9,9 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/")
 find_package(libusb REQUIRED)
 
-include_directories(.)
-
 file(GLOB_RECURSE SRC "*.cpp")
 file(GLOB_RECURSE HEADERS "*.h")
 add_library(${PROJECT_NAME} STATIC ${SRC} ${HEADERS})
 target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
