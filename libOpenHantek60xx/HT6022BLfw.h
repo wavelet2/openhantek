@@ -9,34 +9,8 @@
   ******************************************************************************
   */
 
-
-/* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __HT6022BLFW_H
-#define __HT6022BLFW_H
-
-#ifdef __cplusplus
- extern "C" {
-#endif
-
-
-
-/** @addtogroup HT6022_Driver
-  * @{
-  */
-/* Private define ------------------------------------------------------------*/ 
+#pragma once
 #define HT6022BL_FIRMWARE_SIZE          472
 
 /*Exported variables---------------------------------------------------------*/
 extern unsigned char HT6022BL_Firmware[];
-
-/**
-  * @}
-  */ 
-
-#ifdef __cplusplus
-    }
-#endif
-
-#endif
-
-/****************************END OF FILE*********************************/

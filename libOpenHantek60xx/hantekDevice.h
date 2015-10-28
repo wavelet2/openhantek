@@ -38,7 +38,7 @@
 
 class libusb_device;
 
-namespace Hantek {
+namespace Hantek60xx {
 
 //////////////////////////////////////////////////////////////////////////////
 /// Implementation of a DSO DeviceBase for Hantek USB DSO DSO-60xx
@@ -49,27 +49,27 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
 
         /// Implemented methods from base classes
 
-        virtual ErrorCode setChannelUsed(unsigned int channel, bool used);
-        virtual ErrorCode setCoupling(unsigned int channel, DSO::Coupling coupling);
-        virtual ErrorCode setGain(unsigned int channel, double gain);
-        virtual ErrorCode setOffset(unsigned int channel, double offset);
-        virtual ErrorCode setTriggerSource(bool special, unsigned int id);
-        virtual ErrorCode setTriggerLevel(unsigned int channel, double level);
-        virtual ErrorCode setTriggerSlope(DSO::Slope slope);
-        virtual double updatePretriggerPosition(double position);
-        virtual double computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler);
-        virtual unsigned int updateRecordLength(unsigned int index);
-        virtual unsigned int updateSamplerate(unsigned int downsampler, bool fastRate);
-        virtual int forceTrigger();
+        virtual ErrorCode setChannelUsed(unsigned int channel, bool used) override;
+        virtual ErrorCode setCoupling(unsigned int channel, DSO::Coupling coupling) override;
+        virtual ErrorCode setGain(unsigned int channel, double gain) override;
+        virtual ErrorCode setOffset(unsigned int channel, double offset) override;
+        virtual ErrorCode setTriggerSource(bool special, unsigned int id) override;
+        virtual ErrorCode setTriggerLevel(unsigned int channel, double level) override;
+        virtual ErrorCode setTriggerSlope(DSO::Slope slope) override;
+        virtual double updatePretriggerPosition(double position) override;
+        virtual double computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler) override;
+        virtual unsigned int updateRecordLength(unsigned int index) override;
+        virtual unsigned int updateSamplerate(unsigned int downsampler, bool fastRate) override;
+        virtual int forceTrigger() override;
 
-        virtual unsigned getUniqueID();
+        virtual unsigned getUniqueID() const override;
 
-        virtual bool needFirmware();
-        virtual ErrorCode uploadFirmware();
+        virtual bool needFirmware() const override;
+        virtual ErrorCode uploadFirmware() override;
 
-        virtual bool isDeviceConnected();
-        virtual void connectDevice();
-        virtual void disconnectDevice();
+        virtual bool isDeviceConnected() const override;
+        virtual void connectDevice() override;
+        virtual void disconnectDevice() override;
     private:
         std::unique_ptr<DSO::USBCommunication> _device;
         std::unique_ptr<std::thread> _thread;

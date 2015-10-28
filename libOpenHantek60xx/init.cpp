@@ -24,15 +24,16 @@
 #include "hantekDevice.h"
 #include "deviceDescriptionEntry.h"
 
-namespace Hantek {
-    DSO::DeviceBase* makeHantekDevice(libusb_device* device, const DSO::DSODeviceDescription& model) {
-        return new HantekDevice(std::unique_ptr<DSO::USBCommunication>(new DSO::USBCommunication(device, model)));
+namespace Hantek60xx {
+    DSO::DeviceBase* makeHantek60xxDevice(libusb_device* device, const DSO::DSODeviceDescription& model) {
+        HantekDevice* h = new HantekDevice(std::unique_ptr<DSO::USBCommunication>(new DSO::USBCommunication(device, model)));
+        return h;
     }
 
-    void registerAllHantekProducts(DSO::DeviceList& devicelist) {
-        devicelist.registerModel({"DSO-HT6022BE", 0X6022, 0x04b5, 0, 0x86, false, makeHantekDevice});
-        devicelist.registerModel({"DSO-HT6022BE", 0X6022, 0x04b4, 0, 0, true,  makeHantekDevice});
-        devicelist.registerModel({"DSO-HT6022BL", 0X602A, 0x04b5, 0, 0x86, false, makeHantekDevice});
-        devicelist.registerModel({"DSO-HT6022BL", 0X602A, 0x04b4, 0, 0, true,  makeHantekDevice});
+    void registerHantek60xxProducts(DSO::DeviceList& devicelist) {
+        devicelist.registerModel({"DSO-HT6022BE", 0X6022, 0x04b5, 0, 0x86, false, makeHantek60xxDevice});
+        devicelist.registerModel({"DSO-HT6022BE", 0X6022, 0x04b4, 0, 0, true,  makeHantek60xxDevice});
+        devicelist.registerModel({"DSO-HT6022BL", 0X602A, 0x04b5, 0, 0x86, false, makeHantek60xxDevice});
+        devicelist.registerModel({"DSO-HT6022BL", 0X602A, 0x04b4, 0, 0, true,  makeHantek60xxDevice});
     }
 }

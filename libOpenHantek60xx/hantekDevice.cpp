@@ -42,11 +42,24 @@
 #include "utils/timestampDebug.h"
 #include "utils/stdStringSplit.h"
 
-namespace Hantek {
-std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, unsigned short int x);
-std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x);
-std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x);
-std::vector<double>& operator<<(std::vector<double>& v, double x);
+static std::vector<double>& operator<<(std::vector<double>& v, double x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x) {
+    v.push_back(x);
+    return v;
+}
+static std::vector<unsigned short>& operator<<(std::vector<unsigned short>& v, unsigned short x) {
+    v.push_back(x);
+    return v;
+}
+
+namespace Hantek60xx {
 
 HantekDevice::HantekDevice(std::unique_ptr<DSO::USBCommunication> device)
     : DeviceBase(device->model()), _device(std::move(device)) {
@@ -57,18 +70,23 @@ HantekDevice::~HantekDevice() {
     _device->disconnect();
 }
 
-unsigned HantekDevice::getUniqueID() {
+unsigned HantekDevice::getUniqueID() const {
     return _device->getUniqueID();
 }
 
-bool HantekDevice::needFirmware() {
+bool HantekDevice::needFirmware() const {
     return _model.need_firmware;
 }
 
 ErrorCode HantekDevice::uploadFirmware() {
     int error_code = _device->connect();
-    if (error_code != LIBUSB_SUCCESS)
-        return ErrorCode::ERROR_CONNECTION;
+    if (error_code != LIBUSB_SUCCESS) {
+        libusb_error_name(error_code);
+        std::cerr << "Firmware upload: " << " " <<
+        libusb_error_name((libusb_error)error_code) << " " <<
+            libusb_strerror((libusb_error)error_code) << std::endl;
+        return (ErrorCode)error_code;
+    }
 
     int fwsize = 0;
     unsigned char* firmware = nullptr;
@@ -116,7 +134,7 @@ void HantekDevice::disconnectDevice() {
     _device->disconnect();
 }
 
-bool HantekDevice::isDeviceConnected() {
+bool HantekDevice::isDeviceConnected() const {
     return _device->isConnected();
 }
 

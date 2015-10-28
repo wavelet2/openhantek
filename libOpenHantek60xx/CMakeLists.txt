@@ -9,10 +9,11 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/")
 find_package(libusb REQUIRED)
 
-file(GLOB_RECURSE SRC "*.cpp")
+file(GLOB_RECURSE SRC "*.cpp" "*.c")
 file(GLOB_RECURSE HEADERS "*.h")
 add_library(${PROJECT_NAME} STATIC ${SRC} ${HEADERS})
-target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARIES} libusbDSO)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
 find_package(Qt5Widgets REQUIRED)
 set(CMAKE_AUTOMOC ON)
