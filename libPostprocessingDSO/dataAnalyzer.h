@@ -73,6 +73,8 @@ class DataAnalyzer {
         ~DataAnalyzer();
 
         const AnalyzedData *data(unsigned int channel) const;
+
+        const std::vector<AnalyzedData>& getAllData() const {return analyzedData;}
         unsigned int sampleCount() const;
 
         /// Return a mutex that have to be locked while the analysed data

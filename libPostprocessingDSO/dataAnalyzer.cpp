@@ -121,7 +121,9 @@ void DataAnalyzer::analyseSamples() {
 
             // Copy the buffer of the oscilloscope into the sample buffer
             if(_incoming_append)
-                channelData->samples.voltage.sample.insert(channelData->samples.voltage.sample.end(), _incomingData.at(channel).begin(), _incomingData.at(channel).end());
+                channelData->samples.voltage.sample.insert(channelData->samples.voltage.sample.end(),
+                                                           _incomingData.at(channel).begin(),
+                                                           _incomingData.at(channel).end());
             else
                 channelData->samples.voltage.sample = _incomingData.at(channel);
         }
