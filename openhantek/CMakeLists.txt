@@ -24,7 +24,8 @@ add_subdirectory(res)
 
 # make executable
 add_executable(${PROJECT_NAME} ${SRC} ${HEADERS} ${QRC})
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::PrintSupport Qt5::OpenGL libusbDSO libOpenHantek2xxx-5xxx libPostprocessingDSO ${OPENGL_LIBRARIES} )
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::PrintSupport Qt5::OpenGL
+    libusbDSO libOpenHantek2xxx-5xxx libOpenHantek60xx libPostprocessingDSO ${OPENGL_LIBRARIES} )
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 
 # install commands

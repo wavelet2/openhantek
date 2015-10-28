@@ -23,8 +23,18 @@
 #pragma once
 
 #include <QString>
+#include <QObject>
 
 /// \brief Returns string representation for libusb or other libDSO ErrorCode errors.
 /// \param error The error code.
 /// \return String explaining the error.
 QString getErrorString(int error);
+
+/// Helper class to make the above method available from QML
+class ErrorStrings : public QObject {
+    Q_OBJECT
+public:
+    Q_INVOKABLE QString errorString(int error) {
+        return getErrorString(error);
+    }
+};

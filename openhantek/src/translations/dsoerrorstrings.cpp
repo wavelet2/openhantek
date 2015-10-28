@@ -43,8 +43,6 @@ QString getErrorString(int error) {
             return QCoreApplication::tr("Not supported by this device");
         case ErrorCode::ERROR_PARAMETER:
             return QCoreApplication::tr("Parameter out of range");
-        case ErrorCode::ERROR_ACCESS:
-            return QCoreApplication::tr("Access rights not sufficient");
         default:
             return QString();
     }
