@@ -49,40 +49,42 @@ namespace DSO {
         if(commandParts.size() < 2)
             return ErrorCode::ERROR_PARAMETER;
 
-        if(commandParts[1] == "bulk") {
-            std::string data = section(command, 2);
-            unsigned char commandCode = 0;
+        throw std::runtime_error("Not implemented");
 
-            // Read command code (First byte)
-            hexParse(commandParts[2], &commandCode, 1);
-            if(commandCode > _bulkCommands.size())
-                return ErrorCode::ERROR_UNSUPPORTED;
+//        if(commandParts[1] == "bulk") {
+//            std::string data = section(command, 2);
+//            unsigned char commandCode = 0;
 
-            // Update bulk command and mark as pending
-            hexParse(data, _bulkCommands[commandCode].cmd->data(), _bulkCommands[commandCode].cmd->size());
-            _bulkCommands[commandCode].pending = true;
-            return ErrorCode::ERROR_NONE;
-        }
-        else if(commandParts[1] == "control") {
-            unsigned char controlCode = 0;
+//            // Read command code (First byte)
+//            hexParse(commandParts[2], &commandCode, 1);
+//            if(commandCode > _bulkCommands.size())
+//                return ErrorCode::ERROR_UNSUPPORTED;
 
-            // Read command code (First byte)
-            hexParse(commandParts[2], &controlCode, 1);
-            unsigned control;
-            for(control = 0; control < _controlCommands.size(); ++control) {
-                    if(_controlCommands[control].controlCode == controlCode)
-                            break;
-            }
-            if(control >= _controlCommands.size())
-                    return ErrorCode::ERROR_UNSUPPORTED;
+//            // Update bulk command and mark as pending
+//            hexParse(data, _bulkCommands[commandCode].cmd->data(), _bulkCommands[commandCode].cmd->size());
+//            _bulkCommands[commandCode].pending = true;
+//            return ErrorCode::ERROR_NONE;
+//        }
+//        else if(commandParts[1] == "control") {
+//            unsigned char controlCode = 0;
 
-            std::string data = section(command, 3);
+//            // Read command code (First byte)
+//            hexParse(commandParts[2], &controlCode, 1);
+//            unsigned control;
+//            for(control = 0; control < _controlCommands.size(); ++control) {
+//                    if(_controlCommands[control].control->extra == controlCode)
+//                            break;
+//            }
+//            if(control >= _controlCommands.size())
+//                    return ErrorCode::ERROR_UNSUPPORTED;
 
-            // Update control command and mark as pending
-            hexParse(data, _controlCommands[control].control->data(), _controlCommands[control].control->size());
-            _controlCommands[control].pending = true;
-            return ErrorCode::ERROR_NONE;
-        }
+//            std::string data = section(command, 3);
+
+//            // Update control command and mark as pending
+//            hexParse(data, _controlCommands[control].control->data(), _controlCommands[control].control->size());
+//            _controlCommands[control].pending = true;
+//            return ErrorCode::ERROR_NONE;
+//        }
 
         return ErrorCode::ERROR_UNSUPPORTED;
     }
@@ -90,13 +92,12 @@ namespace DSO {
     bool CommunicationThreadQueues::sendPendingCommands(USBCommunication* device) {
         int errorCode = 0;
 
-        for(BulkCmdStr& cmd: _bulkCommands) {
-            if(!cmd.pending)
-                continue;
+        while(_pendingBulkCommands.size()) {
+            const USBTransferBuffer* cmd = _pendingBulkCommands.front();
+            _pendingBulkCommands.pop();
+            timestampDebug("Sending bulk command: " << hexDump(cmd->data(), cmd->size()));
 
-            timestampDebug("Sending bulk command: " << hexDump(cmd.cmd->data(), cmd.cmd->size()));
-
-            errorCode = device->bulkWrite(cmd.cmd.get()->data(), cmd.cmd.get()->size());
+            errorCode = device->bulkWrite(cmd->data(), cmd->size());
             if(errorCode < 0) {
                 std::cerr << "Sending bulk command %02x failed: " << " " <<
                 libusb_error_name((libusb_error)errorCode) << " " <<
@@ -105,29 +106,25 @@ namespace DSO {
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
             }
-            else
-                cmd.pending = false;
         }
 
         errorCode = 0;
 
-        for(Control& control: _controlCommands) {
-            if(!control.pending)
-                continue;
+        while(_pendingControlCommands.size()) {
+            const USBTransferBuffer* cmd = _pendingControlCommands.front();
+            _pendingControlCommands.pop();
 
-            timestampDebug("Sending control command " << control.controlCode << " " << hexDump(control.control->data(), control.control->size()));
+            timestampDebug("Sending control command " << cmd->extra << " " << hexDump(cmd->data(), cmd->size()));
 
-            errorCode = device->controlWrite(control.controlCode, control.control->data(), control.control->size());
+            errorCode = device->controlWrite(cmd->extra, cmd->data(), cmd->size());
             if(errorCode < 0) {
-                std::cerr << "Sending control command failed: " << control.controlCode << " " <<
+                std::cerr << "Sending control command failed: " << cmd->extra << " " <<
                     libusb_error_name((libusb_error)errorCode) << " " <<
                     libusb_strerror((libusb_error)errorCode) << std::endl;
 
                 if(errorCode == LIBUSB_ERROR_NO_DEVICE)
                     return false;
             }
-            else
-                control.pending = false;
         }
         return true;
     }

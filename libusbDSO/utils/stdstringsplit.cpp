@@ -32,7 +32,7 @@ unsigned int hexParse(std::string dumpString, unsigned char *data, unsigned leng
     return index;
 }
 
-std::string hexDump(unsigned char *data, unsigned len)
+std::string hexDump(const unsigned char *data, unsigned len)
 {
     static const char* const lut = "0123456789ABCDEF";
 

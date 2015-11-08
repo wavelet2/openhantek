@@ -44,4 +44,4 @@ std::string section(const std::string& data, int start);
 /// \return The length of the saved data.
 unsigned int hexParse(std::string dumpString, unsigned char *data, unsigned length);
 
-std::string hexDump(unsigned char *data, unsigned len);
+std::string hexDump(const unsigned char *data, unsigned len);

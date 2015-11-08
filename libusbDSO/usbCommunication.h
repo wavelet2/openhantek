@@ -55,12 +55,12 @@ class USBCommunication {
 
         // Various methods to handle USB transfers
         int bulkTransfer(unsigned char endpoint, unsigned char *data, unsigned int length, int attempts = USB_COMM_ATTEMPTS, unsigned int timeout = USB_COMM_TIMEOUT);
-        int bulkWrite(unsigned char *data, unsigned int length);
+        int bulkWrite(const unsigned char *data, unsigned int length);
         int bulkRead(unsigned char *data, unsigned int length);
         int bulkReadMulti(unsigned char *data, unsigned int length);
 
         int controlTransfer(unsigned char type, unsigned char request, unsigned char *data, unsigned int length, int value, int index);
-        int controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0);
+        int controlWrite(unsigned char request, const unsigned char *data, unsigned int length, int value = 0, int index = 0);
         int controlRead(unsigned char request, unsigned char *data, unsigned int length, int value = 0, int index = 0);
 
         int getPacketSize() const;

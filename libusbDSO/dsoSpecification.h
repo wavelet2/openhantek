@@ -5,77 +5,71 @@
 #include <vector>
 
 namespace DSO {
+    #define MAX_CHANNELS 6
+
+    struct dsoShortMinMax {
+        unsigned short int minimum = 0x0000;
+        unsigned short int maximum = 0xffff;
+        void setMinChangeEndianess(unsigned short int m) {
+            minimum = (m << 8) | ((m & 0xff00) >> 8);
+        }
+        void setMaxChangeEndianess(unsigned short int m) {
+            maximum = (m << 8) | ((m & 0xff00) >> 8);
+        }
+        dsoShortMinMax() = default;
+        dsoShortMinMax(unsigned short int minimum, unsigned short int maximum) : minimum(minimum), maximum(maximum) {}
+    };
+
+    struct dsoRecord {
+        unsigned length_per_channel = 0; ///< Record length, 0 means rolling
+        unsigned divider = 0; ///< Samplerate dividers for record lengths. Normally 1, 1000 for rolling
+        dsoRecord(unsigned length, unsigned divider) : length_per_channel(length), divider(divider) {}
+    };
+
     //////////////////////////////////////////////////////////////////////////////
     /// \struct ControlSamplerateLimits
     /// \brief Stores the samplerate limits for calculations.
     struct ControlSamplerateLimits {
-        double base; ///< The base for sample rate calculations
-        double max; ///< The maximum sample rate
-        unsigned maxDownsampler; ///< The maximum downsampling ratio
-        std::vector<unsigned> recordLengths; ///< Available record lengths, UINT_MAX means rolling
+        double base = 0; ///< The base for sample rate calculations
+        double max  = 0; ///< The maximum sample rate
+        unsigned maxDownsampler = 0; ///< The maximum downsampling ratio
+        std::vector<dsoRecord> recordTypes;
     };
 
-    //////////////////////////////////////////////////////////////////////////////
-    /// \struct dsoSpecificationSamplerate
-    /// \brief Stores the samplerate limits.
-    struct dsoSpecificationSamplerate {
-        ControlSamplerateLimits single; ///< The limits for single channel mode
-        ControlSamplerateLimits multi; ///< The limits for multi channel mode
-        dsoSpecificationSamplerate() {
-            // Use DSO-2090 specification as default
-            single.base = 50e6;
-            single.max = 50e6;
-            single.recordLengths.push_back(0);
-            multi.base = 100e6;
-            multi.max = 100e6;
-            multi.recordLengths.push_back(0);
-        }
+    struct dsoGainLevel {
+        /// The index of the selected gain on the hardware
+        unsigned char gainIndex;
+        /// Available voltage steps in V/screenheight
+        double gainSteps;
+        /// The sample values at the top of the screen
+        unsigned short int voltage;
+        // Calibration per channel
+        dsoShortMinMax offset[MAX_CHANNELS];
+
+        dsoGainLevel(unsigned char gainIndex, double gainSteps, unsigned short int voltage)
+            : gainIndex(gainIndex), gainSteps(gainSteps), voltage(voltage) {}
     };
 
-    //////////////////////////////////////////////////////////////////////////////
-    /// \enum LevelOffset
-    /// \brief The array indicies for the CalibrationData.
-    enum LevelOffset {
-        OFFSET_START, ///< The channel level at the bottom of the scope
-        OFFSET_END, ///< The channel level at the top of the scope
-        OFFSET_COUNT
+    enum dsoFeatures {
+        noFeatures = 0,
+        hasHardwareTrigger = 1
     };
 
     //////////////////////////////////////////////////////////////////////////////
     /// \struct dsoSpecification
     /// \brief Stores the specifications of the currently connected device.
     struct dsoSpecification {
-        dsoSpecificationSamplerate samplerate; ///< The samplerate specifications
-        std::vector<unsigned int> bufferDividers; ///< Samplerate dividers for record lengths
-        std::vector<double> gainSteps; ///< Available voltage steps in V/screenheight
+        ControlSamplerateLimits samplerate_single; ///< The limits for single channel mode
+        ControlSamplerateLimits samplerate_multi; ///< The limits for multi channel mode
+
         unsigned char sampleSize  = 8; ///< Number of bits per sample. Default: 8bit ADC
 
         unsigned channels         = 0;
         unsigned channels_special = 0;
         std::vector<std::string> specialTriggerSources; ///< Names of the special trigger sources
 
-        /// The index of the selected gain on the hardware
-        std::vector<unsigned char> gainIndex;
+        dsoFeatures features = noFeatures;
 
-        // Calibration
-        struct channelLimits {
-            /// The sample values at the top of the screen
-            std::vector<unsigned short int> voltage;
-
-            /// Calibration data for the channel offsets
-            typedef std::array<unsigned short int,OFFSET_COUNT> GainStep;
-            typedef std::array<GainStep, 9> Offsets;
-            Offsets offset;
-
-            channelLimits() {
-                for(GainStep& gainStep: offset) {
-                    gainStep[OFFSET_START] = 0x0000;
-                    gainStep[OFFSET_END] = 0xffff;
-                }
-            }
-        };
-        std::vector<channelLimits> limits;
-
-        dsoSpecification() {}
+        std::vector<dsoGainLevel> gainLevel;
     };
 }

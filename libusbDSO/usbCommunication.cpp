@@ -198,8 +198,8 @@ int USBCommunication::bulkTransfer(unsigned char endpoint, unsigned char *data, 
 /// \param length The length of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of sent bytes on success, libusb error code on error.
-int USBCommunication::bulkWrite(unsigned char *data, unsigned int length) {
-    return bulkTransfer(_model.bulk_endpoint_out, data, length, USB_COMM_ATTEMPTS);
+int USBCommunication::bulkWrite(const unsigned char *data, unsigned int length) {
+    return bulkTransfer(_model.bulk_endpoint_out, (unsigned char *)data, length, USB_COMM_ATTEMPTS);
 }
 
 /// \brief Bulk read from the oscilloscope.
@@ -261,8 +261,8 @@ int USBCommunication::controlTransfer(unsigned char type, unsigned char request,
 /// \param index The index field of the packet.
 /// \param attempts The number of attempts, that are done on timeouts.
 /// \return Number of sent bytes on success, libusb error code on error.
-int USBCommunication::controlWrite(unsigned char request, unsigned char *data, unsigned int length, int value, int index) {
-    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, request,  data, length, value, index);
+int USBCommunication::controlWrite(unsigned char request, const unsigned char *data, unsigned int length, int value, int index) {
+    return controlTransfer(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, request,  (unsigned char *)data, length, value, index);
 }
 
 /// \brief Control read to the oscilloscope.

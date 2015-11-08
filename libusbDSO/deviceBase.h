@@ -25,10 +25,7 @@
 
 #pragma once
 
-#include <thread>
 #include <functional>
-#include <chrono>
-#include <future>
 
 #include "deviceBaseSamples.h"
 #include "errorcodes.h"
@@ -46,51 +43,45 @@ class DeviceBase : public DeviceBaseSamples {
         /// \param channel The channel that should be set.
         /// \param used true if the channel should be sampled.
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setChannelUsed(unsigned int channel, bool used) = 0;
+        virtual ErrorCode setChannelUsed(unsigned int channel, bool used);
 
-        /// \brief Set the coupling for the given channel.
+        /// \brief Set the coupling (AC/DC/Off) for the given channel.
         /// \param channel The channel that should be set.
         /// \param coupling The new coupling for the channel.
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setCoupling(unsigned int channel, Coupling coupling) = 0;
+        virtual ErrorCode setCoupling(unsigned int channel, Coupling coupling);
 
         /// \brief Sets the gain for the given channel.
+        /// Find lowest gain voltage in DeviceBaseSpecifications::gainLevel
+        /// thats at least as high as the requested.
         /// \param channel The channel that should be set.
         /// \param gain The gain that should be met (V/div).
-        /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setGain(unsigned int channel, double gain) = 0;
+        /// \return Returns ::ErrorCode::ERROR_PARAMETER if channel or gain
+        ///         level not found,
+        virtual ErrorCode setGain(unsigned int channel, double gain);
 
         /// \brief Set the offset for the given channel.
         /// \param channel The channel that should be set.
         /// \param offset The new offset value (0.0 - 1.0).
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setOffset(unsigned int channel, double offset) = 0;
+        virtual ErrorCode setOffset(unsigned int channel, double offset);
 
         /// \brief Set the trigger source.
         /// \param special true for a special channel (EXT, ...) as trigger source.
         /// \param id The number of the channel, that should be used as trigger.
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setTriggerSource(bool special, unsigned int channel) = 0;
+        virtual ErrorCode setTriggerSource(bool special, unsigned int channel);
 
         /// \brief Set the trigger level.
         /// \param channel The channel that should be set.
         /// \param level The new trigger level (V).
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setTriggerLevel(unsigned int channel, double level) = 0;
+        virtual ErrorCode setTriggerLevel(unsigned int channel, double level);
 
         /// \brief Set the trigger slope.
         /// \param slope The Slope that should cause a trigger.
         /// \return See ::ErrorCode::ErrorCode.
-        virtual ErrorCode setTriggerSlope(Slope slope) = 0;
-
-        /// \brief Set the trigger position.
-        /// \param position The new trigger position (in s).
-        /// \return The trigger position that has been set.
-        virtual double updatePretriggerPosition(double position) = 0;
-
-        /// \brief Forces a trigger
-        /// \return The trigger position that has been set.
-        virtual int forceTrigger() = 0;
+        virtual ErrorCode setTriggerSlope(Slope slope);
 
         /// \brief Set the trigger mode.
         /// \return See ::ErrorCode::ErrorCode.
@@ -104,9 +95,9 @@ class DeviceBase : public DeviceBaseSamples {
         /// \brief Upload firmware to the DSO. If no firmware is required (needFirmware==false)
         ///        this method will return ERROR_NONE. It can only be called if no connection
         ///        to the device has been made so far (isDeviceConnected==false) otherwise returns
-        ///        ERROR_UNSUPPORTED. This method should be asynchron and should upload the firmware in another
-        ///        thread with a timeout of 60sec. It should report about the status via the
-        ///        _uploadProgress signal around every second.
+        ///        ERROR_UNSUPPORTED. This method should be asynchronous and upload firmware in another
+        ///        thread with a default timeout of 60 sec. It should report about the status via the
+        ///        _uploadProgress signal around every second if the upload duration is longer than 5 sec.
         /// \return See ::ErrorCode::ErrorCode.
         virtual ErrorCode uploadFirmware() = 0;
 
@@ -115,7 +106,8 @@ class DeviceBase : public DeviceBaseSamples {
         const std::vector<std::string>& getSpecialTriggerSources() const;
 
         /// \brief A unique id that is important for the DeviceList to identify already
-        /// connected devices. For usb devices this is the bus/slot number.
+        /// connected devices. For usb devices this is the bus/slot number otherwise
+        /// preferably a hash of the model name.
         virtual unsigned getUniqueID() const = 0;
 
         /// \return Return true if a connection to the device (e.g. usb device) is established.
@@ -126,7 +118,6 @@ class DeviceBase : public DeviceBaseSamples {
 
         /// \brief Disconnect the oscilloscope.
         virtual void disconnectDevice() = 0;
-
     public:
     /**
      * This section contains callback methods. Register your function or class method to get notified
@@ -145,13 +136,33 @@ class DeviceBase : public DeviceBaseSamples {
         std::function<void(int)> _statusMessage = [](int){};
 
 protected:
-        TriggerMode lastTriggerMode = TriggerMode::TRIGGERMODE_UNDEFINED;
+        /// \brief Reset settings to a reasonable default state.
+        /// Should be called by connectDevice().
+        void resetSettings();
 
-        /// \brief Calculates the trigger point from the CommandGetCaptureState data.
-        /// \param value The data value that contains the trigger point.
-        /// \return The calculated trigger point for the given data.
-        unsigned int calculateTriggerPoint(unsigned int value) const;
+        /// \brief Sets the gain for the given channel.
+        /// \param channel The channel that should be set.
+        /// \param gain The gain that should be met (V/div).
+        virtual void updateGain(unsigned channel, unsigned char gainIndex, unsigned gainId) = 0;
 
+        /// \brief Set the offset for the given channel.
+        /// \param channel The channel that should be set.
+        /// \param offset The new offset value (0.0 - 1.0).
+        virtual void updateOffset(unsigned int channel, unsigned short int offsetValue) = 0;
+
+        /// \brief Set the trigger source.
+        /// \param special true for a special channel (EXT, ...) as trigger source.
+        /// \param id The number of the channel, that should be used as trigger.
+        virtual ErrorCode updateTriggerSource(bool special, unsigned int channel) = 0;
+
+        /// \brief Set the trigger level.
+        /// \param channel The channel that should be set.
+        /// \param level The new trigger level (V).
+        virtual ErrorCode updateTriggerLevel(unsigned int channel, double level) = 0;
+
+        /// \brief Set the trigger slope.
+        /// \param slope The Slope that should cause a trigger.
+        virtual ErrorCode updateTriggerSlope(Slope slope) = 0;
 };
 
 }
