@@ -10,8 +10,8 @@ ENDIF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 # Select flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall") # -Wfatal-errors
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti")
-SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
-SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DDEBUG")
+SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0")
+SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DDEBUG -O0")
 
 # C++11: Workaround for cmake < 3.1 with no target_compile_features support.
 if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -27,6 +27,9 @@ INCLUDE_DIRECTORIES(.)
 add_subdirectory(libusbDSO)
 add_subdirectory(libPostprocessingDSO)
 
+# Demo device
+add_subdirectory(libDemoDevice)
+
 # Build Hantek DSO library to support product types 2xxx-5xxx
 add_subdirectory(libOpenHantek2xxx-5xxx)
 
@@ -34,7 +37,7 @@ add_subdirectory(libOpenHantek2xxx-5xxx)
 add_subdirectory(libOpenHantek60xx)
 
 # Qt Widgets based Gui with OpenGL canvas
-add_subdirectory(openhantek)
+#add_subdirectory(openhantek)
 
 # Qt QML based Gui
 add_subdirectory(openhantek2)

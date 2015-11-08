@@ -42,23 +42,6 @@
 #include "utils/timestampDebug.h"
 #include "utils/stdStringSplit.h"
 
-static std::vector<double>& operator<<(std::vector<double>& v, double x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned short>& operator<<(std::vector<unsigned short>& v, unsigned short x) {
-    v.push_back(x);
-    return v;
-}
-
 namespace Hantek60xx {
 
 HantekDevice::HantekDevice(std::unique_ptr<DSO::USBCommunication> device)
@@ -126,12 +109,14 @@ ErrorCode HantekDevice::uploadFirmware() {
 
 void HantekDevice::deviceDisconnected() {
     if (!_thread.get()) return;
+    _keep_thread_running = false;
     if (_thread->joinable()) _thread->join();
     _thread.reset();
 }
 
 void HantekDevice::disconnectDevice() {
     _device->disconnect();
+    _keep_thread_running = false;
 }
 
 bool HantekDevice::isDeviceConnected() const {
@@ -147,86 +132,79 @@ void HantekDevice::connectDevice(){
     if(!_device->isConnected())
             return;
 
-    // No bulk commands so far. The GETSAMPLE command is issued
-    // in the run() method and sample thread therefore and does
-    // not nned the _bulkCommands synchronisation.
-    _bulkCommands.clear();
-
-    _controlCommands.clear();
-    _controlCommands.resize(CONTROLINDEX_COUNT);
-//    _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetOffset()), CONTROL_SETOFFSET, false});
-//    _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetRelays()), CONTROL_SETRELAYS, false});
-
-    for(Control& control: _controlCommands)
-        control.pending = true;
-
-    // Maximum possible samplerate for a single channel and dividers for record lengths
-    _specification.channels         = 2;
     _specification.channels_special = 0;
-    _settings.samplerate.limits = &(_specification.samplerate.single);
+    _specification.channels         = 2;
 
-    _specification.limits.clear();
-    _specification.limits.resize(_specification.channels);
+    resetPending();
+    resetSettings();
 
-    _specification.gainSteps.clear();
-
-    _settings.voltage.clear();
-    _settings.voltage.resize(_specification.channels);
-
-    _settings.trigger.level.clear();
-    _settings.trigger.level.resize(_specification.channels);
-
-    // clear
-    _specification.bufferDividers.clear();
-    _specification.samplerate.single.recordLengths.clear();
-    _specification.samplerate.multi.recordLengths.clear();
-
-    _specification.specialTriggerSources.clear();
-
-    _specification.samplerate.single.base = 50e6;
-    _specification.samplerate.single.max = 50e6;
-    _specification.samplerate.single.maxDownsampler = 131072;
-    _specification.samplerate.single.recordLengths << UINT_MAX << 10240 << 32768;
-    _specification.samplerate.multi.base = 100e6;
-    _specification.samplerate.multi.max = 100e6;
-    _specification.samplerate.multi.maxDownsampler = 131072;
-    _specification.samplerate.multi.recordLengths << UINT_MAX << 20480 << 65536;
-    _specification.bufferDividers << 1000 << 1 << 1;
+    _specification.samplerate_single.base = 50e6;
+    _specification.samplerate_single.max = 50e6;
+    _specification.samplerate_single.maxDownsampler = 131072;
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(rollModeValue, 1000));
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(10240, 1));
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(32768, 1));
+    _specification.samplerate_multi.base = 100e6;
+    _specification.samplerate_multi.max = 100e6;
+    _specification.samplerate_multi.maxDownsampler = 131072;
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(rollModeValue, 1000));
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(20480, 1));
+    _specification.samplerate_single.recordTypes.push_back(DSO::dsoRecord(65536, 1));
     _specification.sampleSize = 8;
-    _specification.gainSteps << 0.08 << 0.16 << 0.40 << 0.80 << 1.60 << 4.00 <<  8.0 << 16.0 << 40.0;
-    _specification.gainIndex <<    0 <<    1 <<    2 <<    0 <<    1 <<    2 <<    0 <<    1 <<    2;
-
-    for(unsigned channel = 0; channel < _specification.channels; ++channel)
-        _specification.limits[channel].voltage
-                            <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255;
-
-    _previousSampleCount = 0;
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(0,  0.08, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(1,  0.16, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(2,  0.40, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(0,  0.80, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(1,  1.60, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(2,  4.00, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(0,  8.00, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(1, 16.00, 255));
+    _specification.gainLevel.push_back(DSO::dsoGainLevel(2, 40.00, 255));
 
     // _signals for initial _settings
-    updateSamplerateLimits();
-    _recordLengthChanged(_settings.samplerate.limits->recordLengths, _settings.recordLengthId);
+    notifySamplerateLimitsChanged();
+    _recordLengthChanged(_settings.recordTypeID);
     if(!isRollingMode())
-        _recordTimeChanged((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current);
+        _recordTimeChanged((double) getCurrentRecordType().length_per_channel / _settings.samplerate.current);
     _samplerateChanged(_settings.samplerate.current);
 
     _sampling = false;
     // The control loop is running until the device is disconnected
+    _keep_thread_running = true;
     _thread = std::unique_ptr<std::thread>(new std::thread(&HantekDevice::run,std::ref(*this)));
 
 }
 
-ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setCoupling(unsigned int channel, DSO::Coupling coupling) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setGain(unsigned int channel, double gain) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setOffset(unsigned int channel, double offset) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setTriggerSource(bool special, unsigned int id) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setTriggerLevel(unsigned int channel, double level) {return ErrorCode::ERROR_NONE;}
-ErrorCode HantekDevice::setTriggerSlope(DSO::Slope slope) {return ErrorCode::ERROR_NONE;}
-double HantekDevice::updatePretriggerPosition(double position) {return 0.0;}
-double HantekDevice::computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler) {return 0.0;}
-unsigned int HantekDevice::updateRecordLength(unsigned int index) {return 0;}
-unsigned int HantekDevice::updateSamplerate(unsigned int downsampler, bool fastRate) {return 0;}
-int HantekDevice::forceTrigger() {return 0;}
+void HantekDevice::updatePretriggerPosition(double pretrigger_pos_in_s) {}
+
+void HantekDevice::updateRecordLength(unsigned int index) {}
+
+void HantekDevice::updateSamplerate(DSO::ControlSamplerateLimits *limits, unsigned int downsampler, bool fastRate) {}
+
+void HantekDevice::updateGain(unsigned channel, unsigned char gainIndex, unsigned gainId)
+{
+
+}
+
+void HantekDevice::updateOffset(unsigned int channel, unsigned short offsetValue)
+{
+
+}
+
+ErrorCode HantekDevice::updateTriggerSource(bool special, unsigned int channel)
+{
+return ErrorCode::ERROR_NONE;
+}
+
+ErrorCode HantekDevice::updateTriggerLevel(unsigned int channel, double level)
+{
+return ErrorCode::ERROR_NONE;
+}
+
+ErrorCode HantekDevice::updateTriggerSlope(DSO::Slope slope)
+{
+return ErrorCode::ERROR_NONE;
+}
 
 int HantekDevice::readSamples() {
     *_data = HT6022_READ_CONTROL_DATA;
@@ -242,7 +220,7 @@ int HantekDevice::readSamples() {
 }
 
 void HantekDevice::run() {
-    while (1) {
+    while (_keep_thread_running) {
         if (!sendPendingCommands(_device.get())) break;
 
         // Compute sleep time
@@ -250,9 +228,11 @@ void HantekDevice::run() {
 
         // Check the current oscilloscope state everytime 25% of the time the buffer should be refilled
         if(isRollingMode())
-            cycleTime = (int) ((double) _device->getPacketSize() / ((_settings.samplerate.limits == &_specification.samplerate.multi) ? 1 : _specification.channels) / _settings.samplerate.current * 250);
+            cycleTime = _device->getPacketSize() / (!isFastRate() ? 1 : _specification.channels);
         else
-            cycleTime = (int) ((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current * 250);
+            cycleTime = getCurrentRecordType().length_per_channel;
+
+        cycleTime = cycleTime / _settings.samplerate.current * 250;
 
         // Not more often than every 10 ms though but at least once every second
         cycleTime = std::max(std::min(10, cycleTime), 1000);

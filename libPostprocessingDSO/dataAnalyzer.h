@@ -69,12 +69,12 @@ struct AnalyzedData {
 /// time-/frequencysteps between two values.
 class DataAnalyzer {
     public:
-        DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, OpenHantekSettingsScope *analyserSettings);
+        DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, AnalyserSettings *analyserSettings);
         ~DataAnalyzer();
 
         const AnalyzedData *data(unsigned int channel) const;
 
-        const std::vector<AnalyzedData>& getAllData() const {return analyzedData;}
+        const std::vector<AnalyzedData>& getAllData() const {return _analyzedData;}
         unsigned int sampleCount() const;
 
         /// Return a mutex that have to be locked while the analysed data
@@ -85,12 +85,19 @@ class DataAnalyzer {
 
         /// Signal: Data has been analyzed. Get the data via
         /// data(), get the sample count via sampleCount().
+        /// You must unlock the analysed mutex (get it by mutex())
+        /// after you have done your processing on data()/getAllData().
         std::function<void()> _analyzed = [](){};
-    private:
+
+        std::shared_ptr<DSO::DeviceBase> getDevice() const;
+        AnalyserSettings* getAnalyserSettings() const;
+        void setAnalyserSettings(AnalyserSettings* analyserSettings);
+
+private:
 
         /// Analyse incoming data from a device in a separate thread. Will make a copy of data for this purpose.
         /// This method is connected to the device in the constructor.
-        void data_from_device(const std::vector<std::vector<double> > *data, double samplerate, bool append, std::mutex& mutex);
+        void data_from_device(const std::vector<std::vector<double> >& data);
 
         /// A separate thread that runs forever and analyses incoming data from a device.
         /// Works with a copy of the device data. An anaylse iteration is started as soon
@@ -98,31 +105,31 @@ class DataAnalyzer {
         /// for an iteration.
         void analyseThread();
         /// Analyses the data from the dso (in a separate thread).
-        void analyseSamples();
+        void copySamples(const std::vector<std::vector<double>>& incomingData, double samplerate, bool append);
+        /// Computes the math channels
+        void computeMathChannels();
         /// Calculate frequencies, peak-to-peak voltages and spectrums (in a separate thread).
         void computeFreqSpectrumPeak(unsigned& lastRecordLength, WindowFunction& lastWindow, double *window);
 
         ///////// Input /////////
 
         /// The settings necessary to analyse and compute data.
-        OpenHantekSettingsScope *_analyserSettings;
-        /// Copy of the input data from device
-        std::vector<std::vector<double>> _incomingData;
-        double _incoming_samplerate = 0.0;   ///< The samplerate of the input data
-        bool _incoming_append       = false; ///< true, if waiting data should be appended
+        AnalyserSettings *_analyserSettings;
+        //double _incoming_samplerate = 0.0;   ///< The samplerate of the input data
 
         ///////// Output /////////
 
         /// The analyzed data for each channel
-        std::vector<AnalyzedData> analyzedData;
+        std::vector<AnalyzedData> _analyzedData;
         /// The maximum record length of the analyzed data
         unsigned int _maxSamples = 0;
 
         /// A mutex that looks the analysing process to allow only one computation at a time
-        std::atomic<bool> _analyseIsRunning;
-        std::mutex _incoming_data_wait_mutex;
+        std::mutex _new_data_arrived_mutex;
         std::mutex _data_in_use_mutex;
+        std::vector<double> m_windowedValues, m_correlation;
         std::unique_ptr<std::thread> _thread;
+        bool _keep_thread_running;
         std::shared_ptr<DSO::DeviceBase> _device;
 };
 

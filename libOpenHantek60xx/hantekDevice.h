@@ -47,21 +47,6 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
         HantekDevice(std::unique_ptr<DSO::USBCommunication> device);
         ~HantekDevice();
 
-        /// Implemented methods from base classes
-
-        virtual ErrorCode setChannelUsed(unsigned int channel, bool used) override;
-        virtual ErrorCode setCoupling(unsigned int channel, DSO::Coupling coupling) override;
-        virtual ErrorCode setGain(unsigned int channel, double gain) override;
-        virtual ErrorCode setOffset(unsigned int channel, double offset) override;
-        virtual ErrorCode setTriggerSource(bool special, unsigned int id) override;
-        virtual ErrorCode setTriggerLevel(unsigned int channel, double level) override;
-        virtual ErrorCode setTriggerSlope(DSO::Slope slope) override;
-        virtual double updatePretriggerPosition(double position) override;
-        virtual double computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler) override;
-        virtual unsigned int updateRecordLength(unsigned int index) override;
-        virtual unsigned int updateSamplerate(unsigned int downsampler, bool fastRate) override;
-        virtual int forceTrigger() override;
-
         virtual unsigned getUniqueID() const override;
 
         virtual bool needFirmware() const override;
@@ -73,6 +58,7 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
     private:
         std::unique_ptr<DSO::USBCommunication> _device;
         std::unique_ptr<std::thread> _thread;
+        volatile bool _keep_thread_running;
 
         /// The DSO samples passes multiple buffers before it appears
         /// on screen. _data is the first one after the usb communication.
@@ -104,6 +90,14 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
         /// \brief Handles all USB communication and sampling until the device gets disconnected.
         void run();
 
+        virtual void updatePretriggerPosition(double pretrigger_pos_in_s) override;
+        virtual void updateRecordLength(unsigned int index) override;
+        virtual void updateSamplerate(DSO::ControlSamplerateLimits *limits, unsigned int downsampler, bool fastRate) override;
+        virtual void updateGain(unsigned channel, unsigned char gainIndex, unsigned gainId);
+        virtual void updateOffset(unsigned int channel, unsigned short int offsetValue);
+        virtual ErrorCode updateTriggerSource(bool special, unsigned int channel);
+        virtual ErrorCode updateTriggerLevel(unsigned int channel, double level);
+        virtual ErrorCode updateTriggerSlope(DSO::Slope slope);
 };
 
 }

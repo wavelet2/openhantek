@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "utils/transferBuffer.h"
 
-namespace Hantek {
+namespace Hantek2xxx_5xxx {
     //////////////////////////////////////////////////////////////////////////////
     /// \enum BulkCode                                              hantek/types.h
     /// \brief All supported bulk commands.
@@ -436,7 +436,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_SETFILTER builder.
-    class BulkSetFilter : public TransferBuffer {
+    class BulkSetFilter : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetFilter();
             BulkSetFilter(bool channel1, bool channel2, bool trigger);
@@ -453,29 +453,29 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_SETTRIGGERANDSAMPLERATE builder.
-    class BulkSetTriggerAndSamplerate : public TransferBuffer {
+    class BulkSetTriggerAndSamplerate : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetTriggerAndSamplerate();
             BulkSetTriggerAndSamplerate(uint16_t downsampler, uint32_t triggerPosition, uint8_t triggerSource = 0, uint8_t recordLength = 0, uint8_t samplerateId = 0, bool downsamplingMode = true, uint8_t usedChannels = 0, bool fastRate = false, uint8_t triggerSlope = 0);
 
             uint8_t getTriggerSource();
-            void setTriggerSource(uint8_t value);
+            BulkSetTriggerAndSamplerate& setTriggerSource(uint8_t value);
             uint8_t getRecordLength();
-            void setRecordLength(uint8_t value);
+            BulkSetTriggerAndSamplerate& setRecordLength(uint8_t value);
             uint8_t getSamplerateId();
-            void setSamplerateId(uint8_t value);
+            BulkSetTriggerAndSamplerate& setSamplerateId(uint8_t value);
             bool getDownsamplingMode();
-            void setDownsamplingMode(bool downsampling);
+            BulkSetTriggerAndSamplerate& setDownsamplingMode(bool downsampling);
             uint8_t getUsedChannels();
-            void setUsedChannels(uint8_t value);
+            BulkSetTriggerAndSamplerate& setUsedChannels(uint8_t value);
             bool getFastRate();
-            void setFastRate(bool fastRate);
+            BulkSetTriggerAndSamplerate& setFastRate(bool fastRate);
             uint8_t getTriggerSlope();
-            void setTriggerSlope(uint8_t slope);
+            BulkSetTriggerAndSamplerate& setTriggerSlope(uint8_t slope);
             uint16_t getDownsampler();
-            void setDownsampler(uint16_t downsampler);
+            BulkSetTriggerAndSamplerate& setDownsampler(uint16_t downsampler);
             uint32_t getTriggerPosition();
-            void setTriggerPosition(uint32_t position);
+            BulkSetTriggerAndSamplerate& setTriggerPosition(uint32_t position);
 
         private:
             void init();
@@ -484,7 +484,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_FORCETRIGGER builder.
-    class BulkForceTrigger : public TransferBuffer {
+    class BulkForceTrigger : public USBTransferBuffer, public BulkUSB {
         public:
             BulkForceTrigger();
     };
@@ -492,7 +492,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_CAPTURESTART builder.
-    class BulkCaptureStart : public TransferBuffer {
+    class BulkCaptureStart : public USBTransferBuffer, public BulkUSB {
         public:
             BulkCaptureStart();
     };
@@ -500,7 +500,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_TRIGGERENABLED builder.
-    class BulkTriggerEnabled : public TransferBuffer {
+    class BulkTriggerEnabled : public USBTransferBuffer, public BulkUSB {
         public:
             BulkTriggerEnabled();
     };
@@ -508,7 +508,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_GETDATA builder.
-    class BulkGetData : public TransferBuffer {
+    class BulkGetData : public USBTransferBuffer, public BulkUSB {
         public:
             BulkGetData();
     };
@@ -516,7 +516,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_GETCAPTURESTATE builder.
-    class BulkGetCaptureState : public TransferBuffer {
+    class BulkGetCaptureState : public USBTransferBuffer, public BulkUSB {
         public:
             BulkGetCaptureState();
     };
@@ -524,35 +524,36 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     /// \enum CaptureState
     /// \brief The different capture states which the oscilloscope returns.
-    enum CaptureState {
-        CAPTURE_WAITING = 0, ///< The scope is waiting for a trigger event
-        CAPTURE_SAMPLING = 1, ///< The scope is sampling data after triggering
-        CAPTURE_READY = 2, ///< Sampling data is available (DSO-2090/DSO-2150)
-        CAPTURE_READY2250 = 3, ///< Sampling data is available (DSO-2250)
-        CAPTURE_READY5200 = 7 ///< Sampling data is available (DSO-5200/DSO-5200A)
+    enum class CaptureState {
+        UNDEFINED = -1,
+        WAITING = 0, ///< The scope is waiting for a trigger event
+        SAMPLING = 1, ///< The scope is sampling data after triggering
+        READY = 2, ///< Sampling data is available (DSO-2090/DSO-2150)
+        READY2250 = 3, ///< Sampling data is available (DSO-2250)
+        READY5200 = 7 ///< Sampling data is available (DSO-5200/DSO-5200A)
     };
 
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The parser for the BULK_GETCAPTURESTATE response.
-    class BulkResponseGetCaptureState : public TransferBuffer {
+    class BulkResponseGetCaptureState : public USBTransferBuffer, public BulkUSB {
         public:
             BulkResponseGetCaptureState();
 
             CaptureState getCaptureState();
-            unsigned int getTriggerPoint();
+            unsigned getTriggerPoint();
     };
 
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_SETGAIN builder.
-    class BulkSetGain : public TransferBuffer {
+    class BulkSetGain : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetGain();
             BulkSetGain(uint8_t channel1, uint8_t channel2);
 
             uint8_t getGain(unsigned int channel);
-            void setGain(unsigned int channel, uint8_t value);
+            BulkSetGain& setGain(unsigned int channel, uint8_t value);
 
         private:
             void init();
@@ -561,7 +562,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_SETLOGICALDATA builder.
-    class BulkSetLogicalData : public TransferBuffer {
+    class BulkSetLogicalData : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetLogicalData();
             BulkSetLogicalData(uint8_t data);
@@ -576,7 +577,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The BULK_GETLOGICALDATA builder.
-    class BulkGetLogicalData : public TransferBuffer {
+    class BulkGetLogicalData : public USBTransferBuffer, public BulkUSB {
         public:
             BulkGetLogicalData();
     };
@@ -584,13 +585,13 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-2250 BULK_BSETFILTER builder.
-    class BulkSetChannels2250 : public TransferBuffer {
+    class BulkSetChannels2250 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetChannels2250();
             BulkSetChannels2250(uint8_t usedChannels);
 
             uint8_t getUsedChannels();
-            void setUsedChannels(uint8_t value);
+            BulkSetChannels2250& setUsedChannels(uint8_t value);
 
         private:
             void init();
@@ -599,15 +600,15 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-2250 BULK_CSETTRIGGERORSAMPLERATE builder.
-    class BulkSetTrigger2250 : public TransferBuffer {
+    class BulkSetTrigger2250 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetTrigger2250();
             BulkSetTrigger2250(uint8_t triggerSource, uint8_t triggerSlope);
 
             uint8_t getTriggerSource();
-            void setTriggerSource(uint8_t value);
+            BulkSetTrigger2250& setTriggerSource(uint8_t value);
             uint8_t getTriggerSlope();
-            void setTriggerSlope(uint8_t slope);
+            BulkSetTrigger2250& setTriggerSlope(uint8_t slope);
 
         private:
             void init();
@@ -616,7 +617,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-5200/DSO-5200A BULK_CSETTRIGGERORSAMPLERATE builder.
-    class BulkSetSamplerate5200 : public TransferBuffer {
+    class BulkSetSamplerate5200 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetSamplerate5200();
             BulkSetSamplerate5200(uint16_t samplerateSlow, uint8_t samplerateFast);
@@ -633,7 +634,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-2250 BULK_DSETBUFFER builder.
-    class BulkSetRecordLength2250 : public TransferBuffer {
+    class BulkSetRecordLength2250 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetRecordLength2250();
             BulkSetRecordLength2250(uint8_t recordLength);
@@ -648,7 +649,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-5200/DSO-5200A BULK_DSETBUFFER builder.
-    class BulkSetBuffer5200 : public TransferBuffer {
+    class BulkSetBuffer5200 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetBuffer5200();
             BulkSetBuffer5200(uint16_t triggerPositionPre, uint16_t triggerPositionPost, uint8_t usedPre = 0, uint8_t usedPost = 0, uint8_t recordLength = 0);
@@ -671,7 +672,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-2250 BULK_ESETTRIGGERORSAMPLERATE builder.
-    class BulkSetSamplerate2250 : public TransferBuffer {
+    class BulkSetSamplerate2250 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetSamplerate2250();
             BulkSetSamplerate2250(bool fastRate, bool downsampling = false, uint16_t samplerate = 0);
@@ -690,21 +691,21 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-5200/DSO-5200A BULK_ESETTRIGGERORSAMPLERATE builder.
-    class BulkSetTrigger5200 : public TransferBuffer {
+    class BulkSetTrigger5200 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetTrigger5200();
             BulkSetTrigger5200(uint8_t triggerSource, uint8_t usedChannels, bool fastRate = false, uint8_t triggerSlope = 0, uint8_t triggerPulse = 0);
 
             uint8_t getTriggerSource();
-            void setTriggerSource(uint8_t value);
+            BulkSetTrigger5200& setTriggerSource(uint8_t value);
             uint8_t getUsedChannels();
-            void setUsedChannels(uint8_t value);
+            BulkSetTrigger5200& setUsedChannels(uint8_t value);
             bool getFastRate();
-            void setFastRate(bool fastRate);
+            BulkSetTrigger5200& setFastRate(bool fastRate);
             uint8_t getTriggerSlope();
-            void setTriggerSlope(uint8_t slope);
+            BulkSetTrigger5200& setTriggerSlope(uint8_t slope);
             bool getTriggerPulse();
-            void setTriggerPulse(bool pulse);
+            BulkSetTrigger5200& setTriggerPulse(bool pulse);
 
         private:
             void init();
@@ -713,7 +714,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The DSO-2250 BULK_FSETBUFFER builder.
-    class BulkSetBuffer2250 : public TransferBuffer {
+    class BulkSetBuffer2250 : public USBTransferBuffer, public BulkUSB {
         public:
             BulkSetBuffer2250();
             BulkSetBuffer2250(uint32_t triggerPositionPre, uint32_t triggerPositionPost);

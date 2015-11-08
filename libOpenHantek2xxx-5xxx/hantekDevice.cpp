@@ -22,14 +22,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-
-#include <cmath>
-#include <limits>
 #include <vector>
 #include <iostream>
 #include <memory>
-#include <climits>
-#include <cstring>
 
 #include <libusb-1.0/libusb.h>
 
@@ -39,29 +34,7 @@
 #include "utils/timestampDebug.h"
 #include "utils/stdStringSplit.h"
 
-//#include "utils/containerStream.h"
-//std::vector<unsigned short int>& operator<<(std::vector<unsigned short int>& v, unsigned short int x);
-//std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x);
-//std::vector<unsigned>& operator<<(std::vector<unsigned int>& v, unsigned x);
-//std::vector<double>& operator<<(std::vector<double>& v, double x);
-
-static std::vector<double>& operator<<(std::vector<double>& v, double x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned>& operator<<(std::vector<unsigned>& v, unsigned x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned char>& operator<<(std::vector<unsigned char>& v, unsigned char x) {
-    v.push_back(x);
-    return v;
-}
-static std::vector<unsigned short>& operator<<(std::vector<unsigned short>& v, unsigned short x) {
-    v.push_back(x);
-    return v;
-}
-namespace Hantek {
+namespace Hantek2xxx_5xxx {
 
 HantekDevice::HantekDevice(std::unique_ptr<DSO::USBCommunication> device)
     : DeviceBase(device->model()), _device(std::move(device)) {
@@ -87,6 +60,7 @@ ErrorCode HantekDevice::uploadFirmware() {
 
 void HantekDevice::deviceDisconnected() {
     if (!_thread.get()) return;
+    _keep_thread_running = false;
     if (_thread->joinable()) _thread->join();
     _thread.reset();
 }
@@ -99,494 +73,8 @@ bool HantekDevice::isDeviceConnected() const {
     return _device->isConnected();
 }
 
-bool HantekDevice::runRollmode(RollState& rollState, int& samplingStarted) {
-    bool toNextState = true;
-    int errorCode = 0;
-
-    switch(rollState) {
-        case RollState::ROLL_STARTSAMPLING:
-            // Don't iterate through roll mode steps when stopped
-            if(!_sampling) {
-                toNextState = false;
-                break;
-            }
-
-            // Sampling hasn't started, update the expected sample count
-            _previousSampleCount = getSampleCount(_device->getPacketSize());
-
-            errorCode = bulkCommand(_bulkCommands[BULK_STARTSAMPLING].cmd.get());
-            if(errorCode < 0) {
-                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                    return false;
-                break;
-            }
-
-            timestampDebug("Starting to capture");
-            samplingStarted = true;
-            break;
-        case RollState::ROLL_ENABLETRIGGER:
-            errorCode = bulkCommand(_bulkCommands[BULK_ENABLETRIGGER].cmd.get());
-            if(errorCode < 0) {
-                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                    return false;
-                break;
-            }
-            timestampDebug("Enabling trigger");
-            break;
-        case RollState::ROLL_FORCETRIGGER:
-            errorCode = bulkCommand(_bulkCommands[BULK_FORCETRIGGER].cmd.get());
-            if(errorCode < 0) {
-                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                    return false;
-                break;
-            }
-            timestampDebug("Forcing trigger");
-            break;
-
-        case RollState::ROLL_GETDATA:
-            // Get data and process it, if we're still sampling
-            errorCode = readSamples(samplingStarted);
-            if(errorCode < 0)
-                std::cerr << "Getting sample data failed: " <<
-                libusb_error_name((libusb_error)errorCode) << " " <<
-                libusb_strerror((libusb_error)errorCode) << std::endl;
-            else
-                timestampDebug("Received " << errorCode << " B of sampling data");
-
-            // Check if we're in single trigger mode
-            if(_settings.trigger.mode == DSO::TriggerMode::TRIGGERMODE_SINGLE && samplingStarted)
-                stopSampling();
-
-            // Sampling completed, restart it when necessary
-            samplingStarted = false;
-            break;
-        default:
-            timestampDebug("Roll mode state unknown");
-            break;
-    }
-
-    // Go to next state, or restart if last state was reached
-    if(toNextState)
-        rollState = (RollState) (((int)rollState + 1) % (int)RollState::ROLL_COUNT);
-
-    return true;
-}
-
-bool HantekDevice::runStandardMode(CaptureState& captureState, int& cycleCounter, int& startCycle, int timerIntervall, int& samplingStarted) {
-    int errorCode = readCaptureState();
-
-    if(errorCode < 0) {
-        std::cerr <<"Getting capture state failed: " <<
-                    libusb_error_name((libusb_error)errorCode) <<
-                    libusb_strerror((libusb_error)errorCode) << std::endl;
-        return false;
-    }
-
-    CaptureState lastCaptureState = captureState;
-    captureState = (CaptureState)errorCode;
-
-    if(captureState != lastCaptureState)
-        timestampDebug("Capture state changed to " << captureState);
-
-    switch(captureState) {
-        case CAPTURE_READY:
-        case CAPTURE_READY2250:
-        case CAPTURE_READY5200:
-            // Get data and process it, if we're still sampling
-            errorCode = readSamples(samplingStarted);
-            if(errorCode < 0)
-                std::cerr << "Getting sample data failed: " <<
-                libusb_error_name((libusb_error)errorCode) << " " <<
-                libusb_strerror((libusb_error)errorCode) << std::endl;
-            else
-                timestampDebug("Received "<< errorCode << " B of sampling data");
-
-            // Check if we're in single trigger mode
-            if(_settings.trigger.mode == DSO::TriggerMode::TRIGGERMODE_SINGLE && samplingStarted)
-                    stopSampling();
-
-            // Sampling completed, restart it when necessary
-            samplingStarted = false;
-
-            // Start next capture if necessary by leaving out the break statement
-            if(!_sampling)
-                break;
-
-        case CAPTURE_WAITING:
-            // Sampling hasn't started, update the expected sample count
-            _previousSampleCount = getSampleCount(_device->getPacketSize());
-
-            if(samplingStarted && lastTriggerMode == _settings.trigger.mode) {
-                ++cycleCounter;
-
-                if(cycleCounter == startCycle && !isRollingMode()) {
-                    // Buffer refilled completely since start of sampling, enable the trigger now
-                    errorCode = bulkCommand(_bulkCommands[BULK_ENABLETRIGGER].cmd.get());
-                    if(errorCode < 0) {
-                        if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                            return false;
-                        break;
-                    }
-
-                    timestampDebug("Enabling trigger");
-
-                }
-                else if(cycleCounter >= 8 + startCycle && _settings.trigger.mode == DSO::TriggerMode::TRIGGERMODE_AUTO) {
-                    // Force triggering
-                    errorCode = bulkCommand(_bulkCommands[BULK_FORCETRIGGER].cmd.get());
-                    if(errorCode < 0) {
-                        if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                            return false;
-                        break;
-                    }
-                    timestampDebug("Forcing trigger");
-                }
-
-                if(cycleCounter < 20 || cycleCounter < 4000 / timerIntervall)
-                    break;
-            }
-
-            // Start capturing
-            errorCode = bulkCommand(_bulkCommands[BULK_STARTSAMPLING].cmd.get());
-            if(errorCode < 0) {
-                if(errorCode == LIBUSB_ERROR_NO_DEVICE)
-                    return false;
-                break;
-            }
-
-            timestampDebug("Starting to capture");
-
-            samplingStarted = true;
-            cycleCounter = 0;
-            startCycle = _settings.trigger.position * 1000 / timerIntervall + 1;
-            lastTriggerMode = _settings.trigger.mode;
-            break;
-
-        case CAPTURE_SAMPLING:
-            break;
-        default:
-            break;
-    }
-    return true;
-}
-
-void HantekDevice::run() {
-    // Initialize usb communication thread state
-    CaptureState captureState = CAPTURE_WAITING;
-    RollState rollState       = RollState::ROLL_STARTSAMPLING;
-    int samplingStarted       = false;
-    lastTriggerMode           = DSO::TriggerMode::TRIGGERMODE_UNDEFINED;
-    int cycleCounter          = 0;
-    int startCycle            = 0;
-
-    while (1) {
-        if (!sendPendingCommands(_device.get())) break;
-
-        // Compute sleep time
-        int cycleTime;
-
-        // Check the current oscilloscope state everytime 25% of the time the buffer should be refilled
-        if(isRollingMode())
-            cycleTime = (int) ((double) _device->getPacketSize() / ((_settings.samplerate.limits == &_specification.samplerate.multi) ? 1 : _specification.channels) / _settings.samplerate.current * 250);
-        else
-            cycleTime = (int) ((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current * 250);
-
-        // Not more often than every 10 ms though but at least once every second
-        cycleTime = std::max(std::min(10, cycleTime), 1000);
-
-        // State machine for the device communication
-        if(isRollingMode()) {
-            captureState = CAPTURE_WAITING;
-            if (!runRollmode(rollState, samplingStarted)) break;
-        } else {
-            rollState = RollState::ROLL_STARTSAMPLING;
-            if (!runStandardMode(captureState, cycleCounter, startCycle, cycleTime, samplingStarted)) break;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(cycleTime));
-    }
-
-    _device->disconnect();
-    _statusMessage(LIBUSB_ERROR_NO_DEVICE);
-}
-
-int HantekDevice::readCaptureState() {
-    int errorCode;
-
-    errorCode = bulkCommand(_bulkCommands[BULK_GETCAPTURESTATE].cmd.get());
-    if(errorCode < 0)
-        return errorCode;
-
-    BulkResponseGetCaptureState response;
-    errorCode = _device->bulkRead(response.data(), response.size());
-    if(errorCode < 0)
-        return errorCode;
-
-    _settings.trigger.point = calculateTriggerPoint(response.getTriggerPoint());
-
-    return (int) response.getCaptureState();
-}
-
-int HantekDevice::readSamples(bool process) {
-    int errorCode;
-
-    // Request data
-    errorCode = bulkCommand(_bulkCommands[BULK_GETDATA].cmd.get());
-    if(errorCode < 0)
-        return errorCode;
-
-    // Save raw data to temporary buffer
-    unsigned int totalSampleCount = getSampleCount(_device->getPacketSize());
-    if(totalSampleCount == UINT_MAX)
-        return LIBUSB_ERROR_INVALID_PARAM;
-
-    // To make sure no samples will remain in the scope buffer,
-    // also check the sample count before the last sampling started
-    if(totalSampleCount < _previousSampleCount)
-        std::swap(_previousSampleCount,totalSampleCount);
-    else
-        _previousSampleCount = totalSampleCount;
-
-    unsigned int dataLength = totalSampleCount;
-    if(_specification.sampleSize > 8) // for ADCs with resolution of 9bit..16bit
-        dataLength *= 2;              // we need two bytes for the transfer
-
-    /// \todo We grow the stack by multiple kilobytes to megabytes each sample iteration.
-    /// Should we allocate the buffer beforehand?
-    unsigned char data[dataLength];
-
-    errorCode = _device->bulkReadMulti(data, dataLength);
-    if(errorCode < 0)
-            return errorCode;
-    dataLength = errorCode; // actual data read
-
-    // Process the data only if we want it
-    if(process) {
-        _samplesMutex.lock();
-        processSamples(data, dataLength, totalSampleCount);
-        _samplesMutex.unlock();
-        _samplesAvailable(&_samples,
-                            _settings.samplerate.current,
-                            isRollingMode(),
-                            _samplesMutex);
-    }
-
-    return errorCode;
-}
-
-void HantekDevice::connectDevice() {
-    if (_model.need_firmware) return;
-
-    _statusMessage(_device->connect());
-    if(!_device->isConnected())
-            return;
-
-    _bulkCommands.clear();
-    _bulkCommands.resize(BULK_COUNT);
-    _bulkCommands[BULK_FORCETRIGGER].cmd.reset(new BulkForceTrigger());
-    _bulkCommands[BULK_STARTSAMPLING].cmd.reset(new BulkCaptureStart());
-    _bulkCommands[BULK_ENABLETRIGGER].cmd.reset(new BulkTriggerEnabled());
-    _bulkCommands[BULK_GETDATA].cmd.reset(new BulkGetData());
-    _bulkCommands[BULK_GETCAPTURESTATE].cmd.reset(new BulkGetCaptureState());
-    _bulkCommands[BULK_SETGAIN].cmd.reset(new BulkSetGain());
-
-    _controlCommands.clear();
-    _controlCommands.resize(CONTROLINDEX_COUNT);
-    _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetOffset()), CONTROL_SETOFFSET, false});
-    _controlCommands.push_back({std::unique_ptr<TransferBuffer>(new ControlSetRelays()), CONTROL_SETRELAYS, false});
-
-    // Determine the _command version we need for this model
-    bool unsupported = false;
-    switch(_model.productID) {
-        case 0x2150:
-            unsupported = true;
-
-        case 0x2090:
-            // Instantiate additional _commands for the DSO-2090. Initialize those as pending
-            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.reset(new BulkSetTriggerAndSamplerate());
-            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
-            break;
-
-        case 0x2250:
-            // Instantiate additional _commands for the DSO-2250. Initialize those as pending
-            _bulkCommands[BULK_BSETCHANNELS].cmd.reset(new BulkSetChannels2250());
-            _bulkCommands[BULK_BSETCHANNELS].pending = true;
-            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetTrigger2250());
-            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
-            _bulkCommands[BULK_DSETBUFFER].cmd.reset(new BulkSetRecordLength2250());
-            _bulkCommands[BULK_DSETBUFFER].pending = true;
-            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetSamplerate2250());
-            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
-            _bulkCommands[BULK_FSETBUFFER].cmd.reset(new BulkSetBuffer2250());
-            _bulkCommands[BULK_FSETBUFFER].pending = true;
-            break;
-
-        case 0x520A:
-            unsupported = true;
-
-        case 0x5200:
-            // Instantiate additional _commands for the DSO-5200. Initialize those as pending
-            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetSamplerate5200());
-            _bulkCommands[BULK_CSETTRIGGERORSAMPLERATE].pending = true;
-            _bulkCommands[BULK_DSETBUFFER].cmd.reset(new BulkSetBuffer5200());
-            _bulkCommands[BULK_DSETBUFFER].pending = true;
-            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.reset(new BulkSetTrigger5200());
-            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
-
-            break;
-
-        default:
-            _device->disconnect();
-            std::cerr <<"Model not supported by this driver!" << std::endl;
-            _statusMessage(int(ErrorCode::ERROR_UNSUPPORTED));
-            return;
-    }
-
-    if(unsupported)
-        std::cerr <<"Warning: This Hantek DSO model isn't supported officially, so it may not be working as expected. Reports about your experiences are very welcome though (Please open a feature request in the tracker at http://www.github.com/openhantek/openhantek). If it's working perfectly this warning can be removed, if not it should be possible to get it working with your help soon." << std::endl;
-
-    for(Control& control: _controlCommands)
-        control.pending = true;
-
-    // Maximum possible samplerate for a single channel and dividers for record lengths
-    _specification.channels         = 2;
-    _specification.channels_special = 2;
-    _settings.samplerate.limits = &(_specification.samplerate.single);
-
-    _specification.limits.resize(_specification.channels);
-    _specification.gainSteps.clear();
-    _settings.voltage.resize(_specification.channels);
-    _settings.trigger.level.resize(_specification.channels);
-
-    // clear
-    for(DSO::dsoSpecification::channelLimits& l: _specification.limits) l.voltage.clear();
-    _specification.bufferDividers.clear();
-    _specification.samplerate.single.recordLengths.clear();
-    _specification.samplerate.multi.recordLengths.clear();
-
-    _specification.specialTriggerSources = {"EXT", "EXT/10"};
-
-    switch(_model.productID) {
-        case 0x5200:
-        case 0x520A:
-            _specification.samplerate.single.base = 100e6;
-            _specification.samplerate.single.max = 125e6;
-            _specification.samplerate.single.maxDownsampler = 131072;
-            _specification.samplerate.single.recordLengths << UINT_MAX << 10240 << 14336;
-            _specification.samplerate.multi.base = 200e6;
-            _specification.samplerate.multi.max = 250e6;
-            _specification.samplerate.multi.maxDownsampler = 131072;
-            _specification.samplerate.multi.recordLengths << UINT_MAX << 20480 << 28672;
-            _specification.bufferDividers << 1000 << 1 << 1;
-            _specification.sampleSize = 10;
-            _specification.gainSteps << 0.16 << 0.40 << 0.80 << 1.60 << 4.00 <<  8.0 << 16.0 << 40.0 << 80.0;
-            _specification.gainIndex <<    1 <<    0 <<    0 <<    1 <<    0 <<    0 <<    1 <<    0 <<    0;
-
-            /// \todo Use calibration data to get the DSO-5200(A) sample ranges
-            for(unsigned channel = 0; channel < _specification.channels; ++channel)
-                _specification.limits[channel].voltage
-                                    <<  368 <<  454 <<  908 <<  368 <<  454 <<  908 <<  368 <<  454 <<  908;
-
-            break;
-
-        case 0x2250:
-            _specification.samplerate.single.base = 100e6;
-            _specification.samplerate.single.max = 100e6;
-            _specification.samplerate.single.maxDownsampler = 65536;
-            _specification.samplerate.single.recordLengths << UINT_MAX << 10240 << 524288;
-            _specification.samplerate.multi.base = 200e6;
-            _specification.samplerate.multi.max = 250e6;
-            _specification.samplerate.multi.maxDownsampler = 65536;
-            _specification.samplerate.multi.recordLengths << UINT_MAX << 20480 << 1048576;
-            _specification.bufferDividers << 1000 << 1 << 1;
-            _specification.sampleSize = 8;
-            _specification.gainSteps << 0.08 << 0.16 << 0.40 << 0.80 << 1.60 << 4.00 <<  8.0 << 16.0 << 40.0;
-            _specification.gainIndex <<    0 <<    2 <<    3 <<    0 <<    2 <<    3 <<    0 <<    2 <<    3;
-
-            for(unsigned channel = 0; channel < _specification.channels; ++channel)
-                _specification.limits[channel].voltage
-                                    <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255;
-            break;
-
-        case 0x2150:
-            _specification.samplerate.single.base = 50e6;
-            _specification.samplerate.single.max = 75e6;
-            _specification.samplerate.single.maxDownsampler = 131072;
-            _specification.samplerate.single.recordLengths << UINT_MAX << 10240 << 32768;
-            _specification.samplerate.multi.base = 100e6;
-            _specification.samplerate.multi.max = 150e6;
-            _specification.samplerate.multi.maxDownsampler = 131072;
-            _specification.samplerate.multi.recordLengths << UINT_MAX << 20480 << 65536;
-            _specification.bufferDividers << 1000 << 1 << 1;
-            _specification.sampleSize = 8;
-            _specification.gainSteps << 0.08 << 0.16 << 0.40 << 0.80 << 1.60 << 4.00 <<  8.0 << 16.0 << 40.0;
-            _specification.gainIndex <<    0 <<    1 <<    2 <<    0 <<    1 <<    2 <<    0 <<    1 <<    2;
-
-            for(unsigned channel = 0; channel < _specification.channels; ++channel)
-                _specification.limits[channel].voltage
-                                    <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255;
-            break;
-
-        default:
-            _specification.samplerate.single.base = 50e6;
-            _specification.samplerate.single.max = 50e6;
-            _specification.samplerate.single.maxDownsampler = 131072;
-            _specification.samplerate.single.recordLengths << UINT_MAX << 10240 << 32768;
-            _specification.samplerate.multi.base = 100e6;
-            _specification.samplerate.multi.max = 100e6;
-            _specification.samplerate.multi.maxDownsampler = 131072;
-            _specification.samplerate.multi.recordLengths << UINT_MAX << 20480 << 65536;
-            _specification.bufferDividers << 1000 << 1 << 1;
-            _specification.sampleSize = 8;
-            _specification.gainSteps << 0.08 << 0.16 << 0.40 << 0.80 << 1.60 << 4.00 <<  8.0 << 16.0 << 40.0;
-            _specification.gainIndex <<    0 <<    1 <<    2 <<    0 <<    1 <<    2 <<    0 <<    1 <<    2;
-
-            for(unsigned channel = 0; channel < _specification.channels; ++channel)
-                _specification.limits[channel].voltage
-                                    <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255 <<  255;
-            break;
-    }
-    _previousSampleCount = 0;
-
-    // Get channel level data
-    unsigned short int offsetLimit[_specification.channels][9][DSO::OFFSET_COUNT];
-    int errorCode = _device->controlRead(CONTROL_VALUE, (unsigned char *) &(offsetLimit),
-                                       sizeof(offsetLimit), (int) VALUE_OFFSETLIMITS);
-    if(errorCode < 0) {
-        _device->disconnect();
-        _statusMessage(errorCode);
-        return;
-    }
-
-    for (unsigned c=0; c < _specification.channels; ++c)
-        memcpy((char*)&(_specification.limits[c].offset[0]), offsetLimit[c], 9*DSO::OFFSET_COUNT);
-
-    // _signals for initial _settings
-    updateSamplerateLimits();
-    _recordLengthChanged(_settings.samplerate.limits->recordLengths, _settings.recordLengthId);
-    if(!isRollingMode())
-        _recordTimeChanged((double) _settings.samplerate.limits->recordLengths[_settings.recordLengthId] / _settings.samplerate.current);
-    _samplerateChanged(_settings.samplerate.current);
-
-    _sampling = false;
-    // The control loop is running until the device is disconnected
-    _thread = std::unique_ptr<std::thread>(new std::thread(&HantekDevice::run,std::ref(*this)));
-}
-
 ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {
-    if(!_device->isConnected())
-        return ErrorCode::ERROR_CONNECTION;
-
-    if(channel >= _specification.channels)
-        return ErrorCode::ERROR_PARAMETER;
-
-    // Update _settings
-    _settings.voltage[channel].used = used;
-    unsigned int channelCount = 0;
-    for(unsigned channelCounter = 0; channelCounter < _specification.channels; ++channelCounter) {
-        if(_settings.voltage[channelCounter].used)
-            ++channelCount;
-    }
+    DeviceBase::setChannelUsed(channel, used);
 
     // Calculate the UsedChannels field for the command
     unsigned char usedChannels = USED_CH1;
@@ -604,122 +92,385 @@ ErrorCode HantekDevice::setChannelUsed(unsigned int channel, bool used) {
         }
     }
 
+
     switch(_model.productID) {
         case 0x2150:
         case 0x2090: {
-            // SetTriggerAndSamplerate bulk command for trigger source
-            static_cast<BulkSetTriggerAndSamplerate *>(_bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].cmd.get())->setUsedChannels(usedChannels);
-            _bulkCommands[BULK_SETTRIGGERANDSAMPLERATE].pending = true;
+            addPending(get<BulkSetTriggerAndSamplerate>().setUsedChannels(usedChannels));
             break;
         }
         case 0x2250: {
-            // SetChannels2250 bulk command for active channels
-            static_cast<BulkSetChannels2250 *>(_bulkCommands[BULK_BSETCHANNELS].cmd.get())->setUsedChannels(usedChannels);
-            _bulkCommands[BULK_BSETCHANNELS].pending = true;
-
+            addPending(get<BulkSetChannels2250>().setUsedChannels(usedChannels));
             break;
         }
         case 0x520A:
         case 0x5200: {
-            // SetTrigger5200s bulk command for trigger source
-            static_cast<BulkSetTrigger5200 *>(_bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].cmd.get())->setUsedChannels(usedChannels);
-            _bulkCommands[BULK_ESETTRIGGERORSAMPLERATE].pending = true;
+            addPending(get<BulkSetTrigger5200>().setUsedChannels(usedChannels));
             break;
         }
         default:
             break;
     }
 
-    // Check if fast rate mode availability changed
-    bool fastRateChanged = (_settings.usedChannels <= 1) != (channelCount <= 1);
-    _settings.usedChannels = channelCount;
-
-    if(fastRateChanged)
-        updateSamplerateLimits();
-
     return ErrorCode::ERROR_NONE;
 }
 
 ErrorCode HantekDevice::setCoupling(unsigned int channel, DSO::Coupling coupling) {
-    if(!_device->isConnected())
-        return ErrorCode::ERROR_CONNECTION;
-
     if(channel >= _specification.channels)
         return ErrorCode::ERROR_PARAMETER;
 
     // SetRelays control command for coupling relays
-    ControlSetRelays* c = static_cast<ControlSetRelays*>(_controlCommands[CONTROLINDEX_SETRELAYS].control.get());
-    c->setCoupling(channel, coupling != DSO::Coupling::COUPLING_AC);
-    _controlCommands[CONTROLINDEX_SETRELAYS].pending = true;
+    ControlSetRelays& cmd = get<ControlSetRelays>();
+    cmd.setCoupling(channel, coupling != DSO::Coupling::AC);
+    addPending(cmd);
 
     return ErrorCode::ERROR_NONE;
 }
 
-ErrorCode HantekDevice::setGain(unsigned int channel, double gain) {
-    if(!_device->isConnected())
-        return ErrorCode::ERROR_CONNECTION;
+void HantekDevice::updateGain(unsigned channel, unsigned char gainIndex, unsigned gainId)
+{
+    // SetGain bulk command for gain
+    addPending(get<BulkSetGain>().setGain(channel, gainIndex));
 
+    // SetRelays control command for gain relays
+    ControlSetRelays& control = get<ControlSetRelays>();
+    control.setBelow1V(channel, gainId < 3);
+    control.setBelow100mV(channel, gainId < 6);
+    addPending(control);
+}
+
+void HantekDevice::updateOffset(unsigned int channel, unsigned short offsetValue)
+{
+    addPending(get<ControlSetOffset>().setChannel(channel, offsetValue));
+}
+
+ErrorCode HantekDevice::updateTriggerSource(bool special, unsigned int id) {
+    if((!special && id >= _specification.channels) || (special && id >= _specification.channels_special))
+        return ErrorCode::ERROR_PARAMETER;
+
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
+            // SetTriggerAndSamplerate bulk command for trigger source
+            BulkSetTriggerAndSamplerate& cmd = get<BulkSetTriggerAndSamplerate>();
+            cmd.setTriggerSource(special ? 3 + id : 1 - id);
+            addPending(cmd);
+            break;
+        }
+        case 0x2250: {
+            // SetTrigger2250 bulk command for trigger source
+            BulkSetTrigger2250& cmd = get<BulkSetTrigger2250>();
+            cmd.setTriggerSource(special ? 0 : 2 + id);
+            addPending(cmd);
+            break;
+        }
+        case 0x520A:
+        case 0x5200: {
+            // SetTrigger5200 bulk command for trigger source
+            BulkSetTrigger5200& cmd = get<BulkSetTrigger5200>();
+            cmd.setTriggerSource(special ? 3 + id : 1 - id);
+            addPending(cmd);
+            break;
+        }
+        default:
+            return ErrorCode::ERROR_UNSUPPORTED;
+    }
+
+    // SetRelays control command for external trigger relay
+    addPending(get<ControlSetRelays>().setTrigger(special));
+
+    // Apply trigger level of the new source
+    if(special) {
+        // SetOffset control command for changed trigger level
+        addPending(get<ControlSetOffset>().setTrigger(0x7f));
+    }
+
+    return ErrorCode::ERROR_NONE;
+}
+
+
+ErrorCode HantekDevice::updateTriggerLevel(unsigned int channel, double level) {
     if(channel >= _specification.channels)
         return ErrorCode::ERROR_PARAMETER;
 
-    // Find lowest gain voltage thats at least as high as the requested
-    unsigned gainId;
-    for(gainId = 0; gainId < _specification.gainSteps.size() - 1; ++gainId)
-            if(_specification.gainSteps[gainId] >= gain)
-                    break;
+    if(_settings.trigger.special || channel != _settings.trigger.source)
+        return ErrorCode::ERROR_PARAMETER;
 
-    // SetGain bulk command for gain
-    static_cast<BulkSetGain *>(_bulkCommands[BULK_SETGAIN].cmd.get())->setGain(channel, _specification.gainIndex[gainId]);
-    _bulkCommands[BULK_SETGAIN].pending = true;
+    // Calculate the trigger level value
+    unsigned short int minimum, maximum;
+    switch(_model.productID) {
+        case 0x5200:
+        case 0x520A:
+            // The range is the same as used for the offsets for 10 bit models
+            minimum = getGainLevel(channel).offset[channel].minimum;
+            maximum = getGainLevel(channel).offset[channel].maximum;
+            break;
 
-    // SetRelays control command for gain relays
-    ControlSetRelays *controlSetRelays = static_cast<ControlSetRelays *>(_controlCommands[CONTROLINDEX_SETRELAYS].control.get());
-    controlSetRelays->setBelow1V(channel, gainId < 3);
-    controlSetRelays->setBelow100mV(channel, gainId < 6);
-    _controlCommands[CONTROLINDEX_SETRELAYS].pending = true;
+        default:
+            // It's from 0x00 to 0xfd for the 8 bit models
+            minimum = 0x00;
+            maximum = 0xfd;
+            break;
+    }
 
-    _settings.voltage[channel].gain = gainId;
+    // Never get out of the limits
+    unsigned short int tlevel = _settings.voltage[channel].offsetReal + level / getGainLevel(channel).gainSteps * (maximum - minimum) + 0.5  + minimum;
+    unsigned short int levelValue = std::max(std::min(minimum, tlevel), maximum);
 
-    setOffset(channel, _settings.voltage[channel].offset);
+    // SetOffset control command for trigger level
+    addPending(get<ControlSetOffset>().setTrigger(levelValue));
 
-    // _specification.gainSteps[gainId]
+    /// \todo Get alternating trigger in here
+
+    // ((levelValue - minimum) / (maximum - minimum) - _settings.voltage[channel].offsetReal) * _specification.gainSteps[_settings.voltage[channel].gain];
     return ErrorCode::ERROR_NONE;
 }
 
-ErrorCode HantekDevice::setOffset(unsigned int channel, double offset) {
-    if(!_device->isConnected())
-        return ErrorCode::ERROR_CONNECTION; /// \todo Return error
+ErrorCode HantekDevice::updateTriggerSlope(DSO::Slope slope) {
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
+            addPending(get<BulkSetTriggerAndSamplerate>().setTriggerSlope((uint8_t)slope));
+            break;
+        }
+        case 0x2250: {
+            addPending(get<BulkSetTrigger2250>().setTriggerSlope((uint8_t)slope));
+            break;
+        }
+        case 0x520A:
+        case 0x5200: {
+            addPending(get<BulkSetTrigger5200>().setTriggerSlope((uint8_t)slope));
+            break;
+        }
+        default:
+            throw std::runtime_error("model not supported");
+    }
 
-    if(channel >= _specification.channels)
-        return ErrorCode::ERROR_PARAMETER; /// \todo Return error
-
-    // Calculate the offset value
-    // The range is given by the calibration data (convert from big endian)
-    unsigned short int minimum = ((unsigned short int) *((unsigned char *) &(_specification.limits[channel].offset[_settings.voltage[channel].gain][DSO::OFFSET_START])) << 8) + *((unsigned char *) &(_specification.limits[channel].offset[_settings.voltage[channel].gain][DSO::OFFSET_START]) + 1);
-    unsigned short int maximum = ((unsigned short int) *((unsigned char *) &(_specification.limits[channel].offset[_settings.voltage[channel].gain][DSO::OFFSET_END])) << 8) + *((unsigned char *) &(_specification.limits[channel].offset[_settings.voltage[channel].gain][DSO::OFFSET_END]) + 1);
-    unsigned short int offsetValue = offset * (maximum - minimum) + minimum + 0.5;
-    double offsetReal = (double) (offsetValue - minimum) / (maximum - minimum);
-
-    // SetOffset control command for channel offset
-    static_cast<ControlSetOffset *>(_controlCommands[CONTROLINDEX_SETOFFSET].control.get())->setChannel(channel, offsetValue);
-    _controlCommands[CONTROLINDEX_SETOFFSET].pending = true;
-
-    _settings.voltage[channel].offset = offset;
-    _settings.voltage[channel].offsetReal = offsetReal;
-
-    setTriggerLevel(channel, _settings.trigger.level[channel]);
-
-    // offsetReal;
     return ErrorCode::ERROR_NONE;
 }
 
-int HantekDevice::bulkCommand(TransferBuffer* command) {
-    // Send BeginCommand control command
-    int errorCode = _device->controlWrite(CONTROL_BEGINCOMMAND, beginCommandControl->data(), beginCommandControl->size());
-    if(errorCode < 0)
-        return errorCode;
+void HantekDevice::updatePretriggerPosition(double pretrigger_pos_in_s) {
+    // All trigger positions are measured in samples
+    unsigned int positionSamples = pretrigger_pos_in_s * _settings.samplerate.current;
+    unsigned int recordLength = getCurrentRecordType().length_per_channel;
+    bool rollMode = recordLength == rollModeValue;
+    // Fast rate mode uses both channels
+    if(isFastRate())
+        positionSamples /= _specification.channels;
 
-    return _device->bulkWrite(command->data(), command->size());
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
+            // Calculate the position value (Start point depending on record length)
+            unsigned int position = rollMode ? 0x1 : 0x7ffff - recordLength + positionSamples;
+            addPending(get<BulkSetTriggerAndSamplerate>().setTriggerPosition(position));
+            break;
+        }
+        case 0x2250: {
+            // Calculate the position values (Inverse, maximum is 0x7ffff)
+            unsigned int positionPre = 0x7ffff - recordLength + positionSamples;
+            unsigned int positionPost = 0x7ffff - positionSamples;
+
+            BulkSetBuffer2250& cmd = get<BulkSetBuffer2250>();
+            cmd.setTriggerPositionPre(positionPre);
+            cmd.setTriggerPositionPost(positionPost);
+            addPending(cmd);
+
+            break;
+        }
+        case 0x520A:
+        case 0x5200: {
+            // Calculate the position values (Inverse, maximum is 0xffff)
+            unsigned short int positionPre = 0xffff - recordLength + positionSamples;
+            unsigned short int positionPost = 0xffff - positionSamples;
+
+            BulkSetBuffer5200& cmd = get<BulkSetBuffer5200>();
+            cmd.setTriggerPositionPre(positionPre);
+            cmd.setTriggerPositionPost(positionPost);
+            addPending(cmd);
+
+            break;
+        }
+        default:
+            throw std::runtime_error("model not supported");
+    }
+}
+
+
+void HantekDevice::updateRecordLength(unsigned int index) {
+    if(index >= (unsigned int) getRecordTypes().size())
+        throw std::range_error("updateRecordLength index out of range");
+
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
+            // SetTriggerAndSamplerate bulk command for record length
+            BulkSetTriggerAndSamplerate& cmd = get<BulkSetTriggerAndSamplerate>();
+            cmd.setRecordLength(index);
+            addPending(cmd);
+            break;
+        }
+        case 0x2250: {
+            // Pointers to needed commands
+            BulkSetRecordLength2250& cmd = get<BulkSetRecordLength2250>();
+            cmd.setRecordLength(index);
+            addPending(cmd);
+            break;
+        }
+        case 0x520A:
+        case 0x5200: {
+            // SetBuffer5200 bulk command for record length
+            BulkSetBuffer5200& cmd = get<BulkSetBuffer5200>();
+            cmd.setRecordLength(index);
+            cmd.setUsedPre(DTRIGGERPOSITION_ON);
+            cmd.setUsedPost(DTRIGGERPOSITION_ON);
+            addPending(cmd);
+            break;
+        }
+        default:
+            throw std::runtime_error("model not supported");
+    }
+}
+
+void HantekDevice::updateSamplerate(DSO::ControlSamplerateLimits *limits, unsigned int downsampler, bool fastRate) {
+    // Set the calculated samplerate
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090: {
+            short int downsamplerValue = 0;
+            unsigned char samplerateId = 0;
+            bool downsampling = false;
+
+            if(downsampler <= 5) {
+                // All dividers up to 5 are done using the special samplerate IDs
+                if(downsampler == 0 && limits->base >= limits->max)
+                    samplerateId = 1;
+                else if(downsampler <= 2)
+                    samplerateId = downsampler;
+                else { // Downsampling factors 3 and 4 are not supported
+                    samplerateId = 3;
+                    downsampler = 5;
+                    downsamplerValue = 0xffff;
+                }
+            }
+            else {
+                // For any dividers above the downsampling factor can be set directly
+                downsampler &= ~0x0001; // Only even values possible
+                downsamplerValue = (short int) (0x10001 - (downsampler >> 1));
+
+                downsampling = true;
+            }
+
+            // Pointers to needed commands
+            BulkSetTriggerAndSamplerate& cmd = get<BulkSetTriggerAndSamplerate>();
+
+            // Store if samplerate ID or downsampling factor is used
+            cmd.setDownsamplingMode(downsampling);
+            // Store samplerate ID
+            cmd.setSamplerateId(samplerateId);
+            // Store downsampling factor
+            cmd.setDownsampler(downsamplerValue);
+            // Set fast rate when used
+            cmd.setFastRate(false /*fastRate*/);
+
+            addPending(cmd);
+
+            break;
+        }
+        case 0x520A:
+        case 0x5200: {
+            // Split the resulting divider into the values understood by the device
+            // The fast value is kept at 4 (or 3) for slow sample rates
+            long int valueSlow = std::max(((long int) downsampler - 3) / 2, (long int) 0);
+            unsigned char valueFast = downsampler - valueSlow * 2;
+
+            BulkSetSamplerate5200& cmdSamplerate = get<BulkSetSamplerate5200>();
+            BulkSetTrigger5200& cmdSettrigger = get<BulkSetTrigger5200>();
+
+            // Store samplerate fast value
+            cmdSamplerate.setSamplerateFast(4 - valueFast);
+            // Store samplerate slow value (two's complement)
+            cmdSamplerate.setSamplerateSlow(valueSlow == 0 ? 0 : 0xffff - valueSlow);
+            // Set fast rate when used
+            cmdSettrigger.setFastRate(fastRate);
+
+            addPending(cmdSamplerate);
+            addPending(cmdSettrigger);
+
+            break;
+        }
+        case 0x2250: {
+            // Pointers to needed commands
+            BulkSetSamplerate2250& cmd = get<BulkSetSamplerate2250>();
+
+            bool downsampling = downsampler >= 1;
+            // Store downsampler state value
+            cmd.setDownsampling(downsampling);
+            // Store samplerate value
+            cmd.setSamplerate(downsampler > 1 ? 0x10001 - downsampler : 0);
+            // Set fast rate when used
+            cmd.setFastRate(fastRate);
+
+            addPending(cmd);
+
+            break;
+        }
+        default:
+            throw std::runtime_error("model not supported");
+    }
+}
+
+double HantekDevice::getDownsamplerRate(double bestDownsampler, bool maximum) const
+{
+    switch(_model.productID) {
+        case 0x2150:
+        case 0x2090:
+            // DSO-2090 supports the downsampling factors 1, 2, 4 and 5 using valueFast
+            // or all even values above using valueSlow
+            if((maximum && bestDownsampler <= 5.0) || (!maximum && bestDownsampler < 6.0)) {
+                // valueFast is used
+                if(maximum) {
+                    // The samplerate shall not be higher, so we round up
+                    bestDownsampler = ceil(bestDownsampler);
+                    if(bestDownsampler > 2.0) // 3 and 4 not possible with the DSO-2090
+                        bestDownsampler = 5.0;
+                }
+                else {
+                    // The samplerate shall not be lower, so we round down
+                    bestDownsampler = floor(bestDownsampler);
+                    if(bestDownsampler > 2.0 && bestDownsampler < 5.0) // 3 and 4 not possible with the DSO-2090
+                        bestDownsampler = 2.0;
+                }
+            }
+            else {
+                // valueSlow is used
+                if(maximum) {
+                    bestDownsampler = ceil(bestDownsampler / 2.0) * 2.0; // Round up to next even value
+                }
+                else {
+                    bestDownsampler = floor(bestDownsampler / 2.0) * 2.0; // Round down to next even value
+                }
+                if(bestDownsampler > 2.0 * 0x10001) // Check for overflow
+                    bestDownsampler = 2.0 * 0x10001;
+            }
+            break;
+
+        case 0x520A:
+        case 0x5200:
+        case 0x2250:
+        // DSO-2250 doesn't have a fast value, so it supports all downsampling factors
+        // DSO-5200 may not supports all downsampling factors, requires testing
+            if(maximum) {
+                bestDownsampler = ceil(bestDownsampler); // Round up to next integer value
+            }
+            else {
+                bestDownsampler = floor(bestDownsampler); // Round down to next integer value
+            }
+            break;
+        default:
+            throw std::runtime_error("model not supported");
+    }
+    return bestDownsampler;
 }
 
 }

@@ -27,8 +27,6 @@
 
 #include <thread>
 #include <functional>
-#include <chrono>
-#include <future>
 
 #include "protocol.h"
 #include "usbCommunication.h"
@@ -36,7 +34,7 @@
 #include "deviceBase.h"
 #include "errorcodes.h"
 
-namespace Hantek {
+namespace Hantek2xxx_5xxx {
 
 //////////////////////////////////////////////////////////////////////////////
 /// Implementation of a DSO DeviceBase for Hantek USB DSO DSO-20xx, DSO-21xx, DSO-22xx, DSO-52xx
@@ -46,19 +44,8 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
         ~HantekDevice();
 
         /// Implemented methods from base classes
-
         virtual ErrorCode setChannelUsed(unsigned int channel, bool used) override;
         virtual ErrorCode setCoupling(unsigned int channel, DSO::Coupling coupling) override;
-        virtual ErrorCode setGain(unsigned int channel, double gain) override;
-        virtual ErrorCode setOffset(unsigned int channel, double offset) override;
-        virtual ErrorCode setTriggerSource(bool special, unsigned int id) override;
-        virtual ErrorCode setTriggerLevel(unsigned int channel, double level) override;
-        virtual ErrorCode setTriggerSlope(DSO::Slope slope) override;
-        virtual double updatePretriggerPosition(double position) override;
-        virtual double computeBestSamplerate(double samplerate, bool fastRate, bool maximum, unsigned int *downsampler) override;
-        virtual unsigned int updateRecordLength(unsigned int index) override;
-        virtual unsigned int updateSamplerate(unsigned int downsampler, bool fastRate) override;
-        virtual int forceTrigger();
 
         virtual unsigned getUniqueID() const override;
 
@@ -73,26 +60,31 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
         /// \enum RollState
         /// \brief The states of the roll cycle (Since capture state isn't valid).
         enum class RollState {
-                ROLL_STARTSAMPLING = 0, ///< Start sampling
-                ROLL_ENABLETRIGGER = 1, ///< Enable triggering
-                ROLL_FORCETRIGGER = 2, ///< Force triggering
-                ROLL_GETDATA = 3, ///< Request sample data
-                ROLL_COUNT
+            STARTSAMPLING = 0, ///< Start sampling
+            ENABLETRIGGER = 1, ///< Enable triggering
+            FORCETRIGGER = 2, ///< Force triggering
+            GETDATA = 3, ///< Request sample data
+            COUNT
         };
 
-        //////////////////////////////////////////////////////////////////////////////
-        /// \enum ControlIndex
-        /// \brief The array indices for possible control commands.
-        enum ControlIndex {
-                CONTROLINDEX_SETOFFSET,
-                CONTROLINDEX_SETRELAYS,
-                CONTROLINDEX_COUNT
-        };
 
         /// \brief Handles all USB communication and sampling until the device gets disconnected.
         void run();
-        bool runRollmode(RollState& rollState, int& samplingStarted);
-        bool runStandardMode(CaptureState& captureState, int& cycleCounter, int& startCycle, int timerIntervall, int& samplingStarted);
+        bool runRollmode(std::vector<unsigned char>& data, RollState& rollState, bool& samplingStarted, unsigned& previouslyReadSamples);
+        bool runStandardMode(std::vector<unsigned char>& data, CaptureState& captureState,
+                             int& cycleCounter, int& startCycle, int timerIntervall,
+                             bool& samplingStarted, DSO::TriggerMode& lastTriggerMode, unsigned& previouslyReadSamples);
+
+        /// Implemented methods from base classes
+        virtual double getDownsamplerRate(double bestDownsampler, bool maximum) const override;
+        virtual void updatePretriggerPosition(double pretrigger_pos_in_s) override;
+        virtual void updateRecordLength(unsigned int index) override;
+        virtual void updateSamplerate(DSO::ControlSamplerateLimits* limits, unsigned int downsampler, bool fastRate) override;
+        virtual void updateGain(unsigned channel, unsigned char gain, unsigned gainId) override;
+        virtual void updateOffset(unsigned int channel, unsigned short int offsetValue) override;
+        virtual ErrorCode updateTriggerSource(bool special, unsigned int channel);
+        virtual ErrorCode updateTriggerLevel(unsigned int channel, double level);
+        virtual ErrorCode updateTriggerSlope(DSO::Slope slope);
 
         /**
          * @brief Sends a bulk command. _device->bulkWrite cannot be called
@@ -101,22 +93,24 @@ class HantekDevice : public DSO::DeviceBase, public DSO::CommunicationThreadQueu
          * @param command
          * @return Return an usb error code.
          */
-        int bulkCommand(TransferBuffer* command);
-        ControlBeginCommand *beginCommandControl = new ControlBeginCommand();
+        int sampleThreadBulkCommand(USBTransferBuffer* command);
 
         /// \brief Gets the current state.
         /// This is done in the sample thread (in run())
-        /// \return The current CaptureState of the oscilloscope, libusb error code on error.
-        int readCaptureState();
+        /// \return <libusb error code on error (<0) or the trigger position,
+        ///          The current CaptureState of the oscilloscope>.
+        std::pair<int, CaptureState> readCaptureState();
 
-        /// \brief Gets sample data from the oscilloscope and converts it.
+        /// \brief Gets sample data from the oscilloscope.
         /// This is done in the sample thread (in run())
+        /// \param data The data from the oscilloscope is store here.
         /// \return sample count on success, libusb error code on error.
-        int readSamples(bool process);
+        int readSamples(std::vector<unsigned char>& data, unsigned recordLength, unsigned& previouslyReadSamples);
 
         /// The USB device for the oscilloscope
         std::unique_ptr<DSO::USBCommunication> _device;
         std::unique_ptr<std::thread> _thread;
+        volatile bool _keep_thread_running;
 
         /// USB device has been disconnected. This will be called if disconnectDevice() is issued before
         /// or if an usb error occured or the device has been plugged out.

@@ -1,10 +1,9 @@
 #pragma once
 
 #include "dsoSettings.h"
+#include <array>
 
 namespace DSOAnalyser {
-
-#define MARKER_COUNT                  2 ///< Number of markers
 
 //////////////////////////////////////////////////////////////////////////////
 /// \enum WindowFunction                                                 dso.h
@@ -32,85 +31,24 @@ enum WindowFunction {
 };
 
 //////////////////////////////////////////////////////////////////////////////
-/// \enum GraphFormat                                                    dso.h
-/// \brief The possible viewing formats for the graphs on the scope.
-enum GraphFormat {
-    GRAPHFORMAT_TY,                     ///< The standard mode
-    GRAPHFORMAT_XY,                     ///< CH1 on X-axis, CH2 on Y-axis
-    GRAPHFORMAT_COUNT                   ///< The total number of formats
-};
-
-//////////////////////////////////////////////////////////////////////////////
 /// \enum MathMode                                                       dso.h
 /// \brief The different math modes for the math-channel.
-enum MathMode {
-    MATHMODE_1ADD2,                     ///< Add the values of the channels
-    MATHMODE_1SUB2,                     ///< Subtract CH2 from CH1
-    MATHMODE_2SUB1,                     ///< Subtract CH1 from CH2
-    MATHMODE_COUNT                      ///< The total number of math modes
-};
-
-////////////////////////////////////////////////////////////////////////////////
-/// \struct OpenHantekSettingsScopeHorizontal                                settings.h
-/// \brief Holds the settings for the horizontal axis.
-struct OpenHantekSettingsScopeHorizontal {
-    GraphFormat format; ///< Graph drawing mode of the scope
-    double frequencybase; ///< Frequencybase in Hz/div
-    double marker[MARKER_COUNT]; ///< Marker positions in div
-    bool marker_visible[MARKER_COUNT];
-    double timebase; ///< Timebase in s/div
-    unsigned int recordLength; ///< Sample count
-    double samplerate; ///< The samplerate of the oscilloscope in S
-    bool samplerateSet; ///< The samplerate was set by the user, not the timebase
-};
-
-////////////////////////////////////////////////////////////////////////////////
-/// \struct OpenHantekSettingsScopeTrigger                                   settings.h
-/// \brief Holds the settings for the trigger.
-struct OpenHantekSettingsScopeTrigger {
-    bool filter; ///< Not sure what this is good for...
-    DSO::TriggerMode mode; ///< Automatic, normal or single trigger
-    double position; ///< Horizontal position for pretrigger
-    DSO::Slope slope; ///< Rising or falling edge causes trigger
-    unsigned int source; ///< Channel that is used as trigger source
-    bool special; ///< true if the trigger source is not a standard channel
-};
-
-////////////////////////////////////////////////////////////////////////////////
-/// \struct OpenHantekSettingsScopeSpectrum                                  settings.h
-/// \brief Holds the settings for the spectrum analysis.
-struct OpenHantekSettingsScopeSpectrum {
-    double magnitude; ///< The vertical resolution in dB/div
-    std::string name; ///< Name of this channel
-    double offset; ///< Vertical offset in divs
-    bool used; ///< true if the spectrum is turned on
-};
-
-////////////////////////////////////////////////////////////////////////////////
-/// \struct OpenHantekSettingsScopeVoltage                                   settings.h
-/// \brief Holds the settings for the normal voltage graphs.
-struct OpenHantekSettingsScopeVoltage {
-    double gain; ///< The vertical resolution in V/div
-    int misc; ///< Different enums, coupling for real- and mode for math-channels
-    std::string name; ///< Name of this channel
-    double offset; ///< Vertical offset in divs
-    double trigger; ///< Trigger level in V
-    bool used; ///< true if this channel is enabled
+enum class MathMode {
+    ADD_CH1_CH2,                     ///< Add the values of the channels
+    SUB_CH2_FROM_CH1,                     ///< Subtract CH2 from CH1
+    SUB_CH1_FROM_CH2                     ///< Subtract CH1 from CH2
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 /// \struct OpenHantekSettingsScope                                          settings.h
 /// \brief Holds the settings for the oscilloscope.
-struct OpenHantekSettingsScope {
-    OpenHantekSettingsScopeHorizontal horizontal; ///< Settings for the horizontal axis
-    OpenHantekSettingsScopeTrigger trigger; ///< Settings for the trigger
-    std::vector<OpenHantekSettingsScopeSpectrum> spectrum; ///< Spectrum analysis settings
-    std::vector<OpenHantekSettingsScopeVoltage> voltage; ///< Settings for the normal graphs
-
-    unsigned int physicalChannels; ///< Number of real channels (No math etc.)
-    WindowFunction spectrumWindow; ///< Window function for DFT
-    double spectrumReference; ///< Reference level for spectrum in dBm
-    double spectrumLimit; ///< Minimum magnitude of the spectrum (Avoids peaks)
+struct AnalyserSettings {
+    std::vector<bool> spectrumEnabled;
+    bool mathChannelEnabled      = false;
+    MathMode mathmode;
+    WindowFunction spectrumWindow = WINDOW_RECTANGULAR; ///< Window function for DFT
+    double spectrumReference      = 0.0; ///< Reference level for spectrum in dBm
+    double spectrumLimit          = 1.0; ///< Minimum magnitude of the spectrum (Avoids peaks)
 };
 
 }

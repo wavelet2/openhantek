@@ -30,31 +30,40 @@
 
 namespace DSOAnalyser {
 
-DataAnalyzer::DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, OpenHantekSettingsScope *analyserSettings)
-    : _analyserSettings(analyserSettings), _analyseIsRunning(false), _device(device) {
+DataAnalyzer::DataAnalyzer(std::shared_ptr<DSO::DeviceBase> device, AnalyserSettings* analyserSettings)
+    : _analyserSettings(analyserSettings), _device(device) {
         // lock analyse thread mutex
-        _incoming_data_wait_mutex.lock();
+        _new_data_arrived_mutex.lock();
 
         // Connect to device
         using namespace std::placeholders;
-        _device->_samplesAvailable = std::bind(&DataAnalyzer::data_from_device, this, _1, _2, _3, _4);
+        _device->_samplesAvailable = std::bind(&DataAnalyzer::data_from_device, this, _1);
+
+        _analyserSettings->spectrumEnabled.resize(_device->getChannelCount());
 
         // Create thread
+        _keep_thread_running = true;
         _thread = std::unique_ptr<std::thread>(new std::thread(&DataAnalyzer::analyseThread,std::ref(*this)));
     }
 
 DataAnalyzer::~DataAnalyzer() {
-    _device->_samplesAvailable = [](const std::vector<std::vector<double> > *,double,bool,std::mutex&){};
+    _analyzed = [](){};
+    if (!_thread.get()) return;
+    _keep_thread_running = false;
+    _new_data_arrived_mutex.unlock();
+    if (_thread->joinable()) _thread->join();
+    _thread.reset();
+    _device->_samplesAvailable = [](const std::vector<std::vector<double> >&){};
 }
 
 /// \brief Returns the analyzed data.
 /// \param channel Channel, whose data should be returned.
 /// \return Analyzed data as AnalyzedData struct.
 AnalyzedData const *DataAnalyzer::data(unsigned channel) const {
-    if(channel >= this->analyzedData.size())
+    if(channel >= this->_analyzedData.size())
         return nullptr;
 
-    return &this->analyzedData[channel];
+    return &this->_analyzedData[channel];
 }
 
 /// \brief Returns the sample count of the analyzed data.
@@ -69,289 +78,280 @@ std::mutex& DataAnalyzer::mutex() {
     return _data_in_use_mutex;
 }
 
-void DataAnalyzer::analyseSamples() {
-    unsigned maxSamples = 0;
-    unsigned channelCount = (unsigned) _analyserSettings->voltage.size();
+void DataAnalyzer::copySamples(const std::vector<std::vector<double>>& incomingData, double samplerate, bool append) {
+    size_t maxSamples = 0;
 
     // Adapt the number of channels for analyzed data
-    this->analyzedData.resize(channelCount);
+    this->_analyzedData.resize(incomingData.size());
 
-    for(unsigned channel = 0; channel < channelCount; ++channel) {
-         AnalyzedData *const channelData = &this->analyzedData[channel];
+    for(unsigned channel = 0; channel < incomingData.size(); ++channel) {
+        AnalyzedData *const channelData = &this->_analyzedData[channel];
 
-         bool validData =
-            ( // ...if we got data for this channel...
-                channel < _analyserSettings->physicalChannels &&
-                channel < (unsigned) _incomingData.size() &&
-                !_incomingData.at(channel).empty())
-            ||
-            ( // ...or if it's a math channel that can be calculated
-                channel >= _analyserSettings->physicalChannels &&
-                (_analyserSettings->voltage[channel].used || _analyserSettings->spectrum[channel].used) &&
-                this->analyzedData.size() >= 2 &&
-                !this->analyzedData[0].samples.voltage.sample.empty() &&
-                !this->analyzedData[1].samples.voltage.sample.empty()
-            );
-
-        if (!validData) {
+        if (incomingData[channel].empty()) {
             // Clear unused channels
             channelData->samples.voltage.sample.clear();
-            this->analyzedData[_analyserSettings->physicalChannels].samples.voltage.interval = 0;
+            channelData->samples.voltage.interval = 0;
             continue;
         }
 
         // Set sampling interval
-        const double interval = 1.0 / _incoming_samplerate;
+        const double interval = 1.0 / samplerate;
         if(interval != channelData->samples.voltage.interval) {
             channelData->samples.voltage.interval = interval;
-            if(_incoming_append) // Clear roll buffer if the samplerate changed
+            if(append) // Clear roll buffer if the samplerate changed
                 channelData->samples.voltage.sample.clear();
         }
 
+        // Copy the buffer of the oscilloscope into the sample buffer
+        if(append)
+            channelData->samples.voltage.sample.insert(channelData->samples.voltage.sample.end(),
+                                                       incomingData.at(channel).begin(),
+                                                       incomingData.at(channel).end());
+        else
+            channelData->samples.voltage.sample = incomingData.at(channel);
 
-        unsigned size = maxSamples;
-
-        // Physical channels
-        if(channel < _analyserSettings->physicalChannels) {
-            size = _incomingData.at(channel).size();
-            if(_incoming_append)
-                size += channelData->samples.voltage.sample.size();
-
-            maxSamples = std::max(size, maxSamples);
-
-            // Copy the buffer of the oscilloscope into the sample buffer
-            if(_incoming_append)
-                channelData->samples.voltage.sample.insert(channelData->samples.voltage.sample.end(),
-                                                           _incomingData.at(channel).begin(),
-                                                           _incomingData.at(channel).end());
-            else
-                channelData->samples.voltage.sample = _incomingData.at(channel);
-        }
-        // Math channel
-        else {
-            // Resize the sample vector
-            channelData->samples.voltage.sample.resize(size);
-            // Set sampling interval
-            this->analyzedData[_analyserSettings->physicalChannels].samples.voltage.interval = this->analyzedData[0].samples.voltage.interval;
-
-            // Resize the sample vector
-            this->analyzedData[_analyserSettings->physicalChannels].samples.voltage.sample.resize(std::min(this->analyzedData[0].samples.voltage.sample.size(), this->analyzedData[1].samples.voltage.sample.size()));
-
-            // Calculate values and write them into the sample buffer
-            std::vector<double>::const_iterator ch1Iterator = this->analyzedData[0].samples.voltage.sample.begin();
-            std::vector<double>::const_iterator ch2Iterator = this->analyzedData[1].samples.voltage.sample.begin();
-            std::vector<double> &resultData = this->analyzedData[_analyserSettings->physicalChannels].samples.voltage.sample;
-            for(std::vector<double>::iterator resultIterator = resultData.begin(); resultIterator != resultData.end(); ++resultIterator) {
-                switch(_analyserSettings->voltage[_analyserSettings->physicalChannels].misc) {
-                    case MATHMODE_1ADD2:
-                        *(resultIterator++) = *(ch1Iterator++) + *(ch2Iterator++);
-                        break;
-                    case MATHMODE_1SUB2:
-                        *(resultIterator++) = *(ch1Iterator++) - *(ch2Iterator++);
-                        break;
-                    case MATHMODE_2SUB1:
-                        *(resultIterator++) = *(ch2Iterator++) - *(ch1Iterator++);
-                        break;
-                }
-            }
-        }
+        maxSamples = std::max(channelData->samples.voltage.sample.size(), maxSamples);
     }
     _maxSamples = maxSamples;
 }
 
+void DataAnalyzer::computeMathChannels()
+{
+    if (!_analyserSettings->mathChannelEnabled || _device->getChannelCount()<2)
+        return;
+
+    unsigned math_channel_id = _device->getChannelCount();
+    _analyzedData.resize(math_channel_id+1);
+
+    // Calculate values and write them into the sample buffer
+    std::vector<double>::const_iterator ch1Iterator = _analyzedData[0].samples.voltage.sample.begin();
+    std::vector<double>::const_iterator ch2Iterator = _analyzedData[1].samples.voltage.sample.begin();
+    std::vector<double> &resultData = this->_analyzedData[math_channel_id].samples.voltage.sample;
+    switch(_analyserSettings->mathmode) {
+        case MathMode::ADD_CH1_CH2:
+            for(unsigned i=0;i<_maxSamples;++i)
+                resultData.push_back(*(ch1Iterator++) + *(ch2Iterator++));
+            break;
+        case MathMode::SUB_CH2_FROM_CH1:
+            for(unsigned i=0;i<_maxSamples;++i)
+                resultData.push_back(*(ch1Iterator++) - *(ch2Iterator++));
+            break;
+        case MathMode::SUB_CH1_FROM_CH2:
+            for(unsigned i=0;i<_maxSamples;++i)
+                resultData.push_back(*(ch2Iterator++) - *(ch1Iterator++));
+            break;
+    }
+}
+
 void DataAnalyzer::computeFreqSpectrumPeak(unsigned& lastRecordLength, WindowFunction& lastWindow, double *window) {
-    for(unsigned channel = 0; channel < this->analyzedData.size(); ++channel) {
-        AnalyzedData *const channelData = &this->analyzedData[channel];
-
-        if(!channelData->samples.voltage.sample.empty()) {
-            // Calculate new window
-            unsigned sampleCount = channelData->samples.voltage.sample.size();
-            if(lastWindow != _analyserSettings->spectrumWindow || lastRecordLength != sampleCount) {
-                if(lastRecordLength != sampleCount) {
-                    lastRecordLength = sampleCount;
-
-                    if(window)
-                        fftw_free(window);
-                    window = (double *) fftw_malloc(sizeof(double) * lastRecordLength);
-                }
-
-                unsigned windowEnd = lastRecordLength - 1;
-                lastWindow = _analyserSettings->spectrumWindow;
-
-                switch(_analyserSettings->spectrumWindow) {
-                    case WINDOW_HAMMING:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.54 - 0.46 * cos(2.0 * M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_HANN:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.5 * (1.0 - cos(2.0 * M_PI * windowPosition / windowEnd));
-                        break;
-                    case WINDOW_COSINE:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = sin(M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_LANCZOS:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition) {
-                            double sincParameter = (2.0 * windowPosition / windowEnd - 1.0) * M_PI;
-                            if(sincParameter == 0)
-                                *(window + windowPosition) = 1;
-                            else
-                                *(window + windowPosition) = sin(sincParameter) / sincParameter;
-                        }
-                        break;
-                    case WINDOW_BARTLETT:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 2.0 / windowEnd * (windowEnd / 2 - abs(windowPosition - windowEnd / 2));
-                        break;
-                    case WINDOW_TRIANGULAR:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 2.0 / lastRecordLength * (lastRecordLength / 2 - abs(windowPosition - windowEnd / 2));
-                        break;
-                    case WINDOW_GAUSS:
-                        {
-                            double sigma = 0.4;
-                            for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                                *(window + windowPosition) = exp(-0.5 * pow(((windowPosition - windowEnd / 2) / (sigma * windowEnd / 2)), 2));
-                        }
-                        break;
-                    case WINDOW_BARTLETTHANN:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.62 - 0.48 * abs(windowPosition / windowEnd - 0.5) - 0.38 * cos(2.0 * M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_BLACKMAN:
-                        {
-                            double alpha = 0.16;
-                            for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                                *(window + windowPosition) = (1 - alpha) / 2 - 0.5 * cos(2.0 * M_PI * windowPosition / windowEnd) + alpha / 2 * cos(4.0 * M_PI * windowPosition / windowEnd);
-                        }
-                        break;
-                    //case WINDOW_KAISER:
-                        // TODO
-                        //double alpha = 3.0;
-                        //for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            //*(window + windowPosition) = ;
-                        //break;
-                    case WINDOW_NUTTALL:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.355768 - 0.487396 * cos(2 * M_PI * windowPosition / windowEnd) + 0.144232 * cos(4 * M_PI * windowPosition / windowEnd) - 0.012604 * cos(6 * M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_BLACKMANHARRIS:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.35875 - 0.48829 * cos(2 * M_PI * windowPosition / windowEnd) + 0.14128 * cos(4 * M_PI * windowPosition / windowEnd) - 0.01168 * cos(6 * M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_BLACKMANNUTTALL:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 0.3635819 - 0.4891775 * cos(2 * M_PI * windowPosition / windowEnd) + 0.1365995 * cos(4 * M_PI * windowPosition / windowEnd) - 0.0106411 * cos(6 * M_PI * windowPosition / windowEnd);
-                        break;
-                    case WINDOW_FLATTOP:
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 1.0 - 1.93 * cos(2 * M_PI * windowPosition / windowEnd) + 1.29 * cos(4 * M_PI * windowPosition / windowEnd) - 0.388 * cos(6 * M_PI * windowPosition / windowEnd) + 0.032 * cos(8 * M_PI * windowPosition / windowEnd);
-                        break;
-                    default: // WINDOW_RECTANGULAR
-                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
-                            *(window + windowPosition) = 1.0;
-                }
-            }
-
-            // Set sampling interval
-            channelData->samples.spectrum.interval = 1.0 / channelData->samples.voltage.interval / sampleCount;
-
-            // Number of real/complex samples
-            unsigned dftLength = sampleCount / 2;
-
-            // Reallocate memory for samples if the sample count has changed
-            channelData->samples.spectrum.sample.resize(sampleCount);
-
-            // Create sample buffer and apply window
-            double *windowedValues = new double[sampleCount];
-            for(unsigned position = 0; position < sampleCount; ++position)
-                windowedValues[position] = window[position] * channelData->samples.voltage.sample[position];
-
-            // Do discrete real to half-complex transformation
-            /// \todo Check if record length is multiple of 2
-            /// \todo Reuse plan and use FFTW_MEASURE to get fastest algorithm
-            fftw_plan fftPlan = fftw_plan_r2r_1d(sampleCount, windowedValues, &channelData->samples.spectrum.sample.front(), FFTW_R2HC, FFTW_ESTIMATE);
-            fftw_execute(fftPlan);
-            fftw_destroy_plan(fftPlan);
-
-            // Do an autocorrelation to get the frequency of the signal
-            double *conjugateComplex = windowedValues; // Reuse the windowedValues buffer
-
-            // Real values
-            unsigned position;
-            double correctionFactor = 1.0 / dftLength / dftLength;
-            conjugateComplex[0] = (channelData->samples.spectrum.sample[0] * channelData->samples.spectrum.sample[0]) * correctionFactor;
-            for(position = 1; position < dftLength; ++position)
-                conjugateComplex[position] = (channelData->samples.spectrum.sample[position] * channelData->samples.spectrum.sample[position] + channelData->samples.spectrum.sample[sampleCount - position] * channelData->samples.spectrum.sample[sampleCount - position]) * correctionFactor;
-            // Complex values, all zero for autocorrelation
-            conjugateComplex[dftLength] = (channelData->samples.spectrum.sample[dftLength] * channelData->samples.spectrum.sample[dftLength]) * correctionFactor;
-            for(++position; position < sampleCount; ++position)
-                conjugateComplex[position] = 0;
-
-            // Do half-complex to real inverse transformation
-            double *correlation = new double[sampleCount];
-            fftPlan = fftw_plan_r2r_1d(sampleCount, conjugateComplex, correlation, FFTW_HC2R, FFTW_ESTIMATE);
-            fftw_execute(fftPlan);
-            fftw_destroy_plan(fftPlan);
-            delete[] conjugateComplex;
-
-            // Calculate peak-to-peak voltage
-            double minimalVoltage, maximalVoltage;
-            minimalVoltage = maximalVoltage = channelData->samples.voltage.sample[0];
-
-            for(unsigned position = 1; position < sampleCount; ++position) {
-                if(channelData->samples.voltage.sample[position] < minimalVoltage)
-                    minimalVoltage = channelData->samples.voltage.sample[position];
-                else if(channelData->samples.voltage.sample[position] > maximalVoltage)
-                    maximalVoltage = channelData->samples.voltage.sample[position];
-            }
-
-            channelData->amplitude = maximalVoltage - minimalVoltage;
-
-            // Get the frequency from the correlation results
-            double minimumCorrelation = correlation[0];
-            double peakCorrelation = 0;
-            unsigned peakPosition = 0;
-
-            for(unsigned position = 1; position < sampleCount / 2; ++position) {
-                if(correlation[position] > peakCorrelation && correlation[position] > minimumCorrelation * 2) {
-                    peakCorrelation = correlation[position];
-                    peakPosition = position;
-                }
-                else if(correlation[position] < minimumCorrelation)
-                    minimumCorrelation = correlation[position];
-            }
-            delete[] correlation;
-
-            // Calculate the frequency in Hz
-            if(peakPosition)
-                channelData->frequency = 1.0 / (channelData->samples.voltage.interval * peakPosition);
-            else
-                channelData->frequency = 0;
-
-            // Finally calculate the real spectrum if we want it
-            if(_analyserSettings->spectrum[channel].used) {
-                // Convert values into dB (Relative to the reference level)
-                double offset = 60 - _analyserSettings->spectrumReference - 20 * log10(dftLength);
-                double offsetLimit = _analyserSettings->spectrumLimit - _analyserSettings->spectrumReference;
-                for(std::vector<double>::iterator spectrumIterator = channelData->samples.spectrum.sample.begin(); spectrumIterator != channelData->samples.spectrum.sample.end(); ++spectrumIterator) {
-                    double value = 20 * log10(fabs(channelData->samples.spectrum.sample[position])) + offset;
-
-                    // Check if this value has to be limited
-                    if(offsetLimit > value)
-                        value = offsetLimit;
-
-                    *spectrumIterator = value;
-                }
-            }
-        }
-        else if(!channelData->samples.spectrum.sample.empty()) {
+    for(unsigned channel = 0; channel < this->_analyzedData.size(); ++channel) {
+        AnalyzedData *const channelData = &this->_analyzedData[channel];
+        if(channelData->samples.spectrum.sample.empty()) {
             // Clear unused channels
             channelData->samples.spectrum.interval = 0;
             channelData->samples.spectrum.sample.clear();
+            continue;
+        }
+
+        // Calculate new window
+        unsigned sampleCount = channelData->samples.voltage.sample.size();
+        bool sampleCountChanged = lastRecordLength != sampleCount;
+        if(lastWindow != _analyserSettings->spectrumWindow || sampleCountChanged) {
+            if(sampleCountChanged || !window) {
+                lastRecordLength = sampleCount;
+
+                if(window)
+                    fftw_free(window);
+                window = (double *) fftw_malloc(sizeof(double) * lastRecordLength);
+            }
+
+            unsigned windowEnd = lastRecordLength - 1;
+            lastWindow = _analyserSettings->spectrumWindow;
+
+            switch(_analyserSettings->spectrumWindow) {
+                case WINDOW_HAMMING:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.54 - 0.46 * cos(2.0 * M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_HANN:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.5 * (1.0 - cos(2.0 * M_PI * windowPosition / windowEnd));
+                    break;
+                case WINDOW_COSINE:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = sin(M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_LANCZOS:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition) {
+                        double sincParameter = (2.0 * windowPosition / windowEnd - 1.0) * M_PI;
+                        if(sincParameter == 0)
+                            *(window + windowPosition) = 1;
+                        else
+                            *(window + windowPosition) = sin(sincParameter) / sincParameter;
+                    }
+                    break;
+                case WINDOW_BARTLETT:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 2.0 / windowEnd * (windowEnd / 2 - abs(windowPosition - windowEnd / 2));
+                    break;
+                case WINDOW_TRIANGULAR:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 2.0 / lastRecordLength * (lastRecordLength / 2 - abs(windowPosition - windowEnd / 2));
+                    break;
+                case WINDOW_GAUSS:
+                    {
+                        double sigma = 0.4;
+                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                            *(window + windowPosition) = exp(-0.5 * pow(((windowPosition - windowEnd / 2) / (sigma * windowEnd / 2)), 2));
+                    }
+                    break;
+                case WINDOW_BARTLETTHANN:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.62 - 0.48 * abs(windowPosition / windowEnd - 0.5) - 0.38 * cos(2.0 * M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_BLACKMAN:
+                    {
+                        double alpha = 0.16;
+                        for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                            *(window + windowPosition) = (1 - alpha) / 2 - 0.5 * cos(2.0 * M_PI * windowPosition / windowEnd) + alpha / 2 * cos(4.0 * M_PI * windowPosition / windowEnd);
+                    }
+                    break;
+                //case WINDOW_KAISER:
+                    //TODO Spectrum WINDOW_KAISER
+                    //double alpha = 3.0;
+                    //for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        //*(window + windowPosition) = ;
+                    //break;
+                case WINDOW_NUTTALL:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.355768 - 0.487396 * cos(2 * M_PI * windowPosition / windowEnd) + 0.144232 * cos(4 * M_PI * windowPosition / windowEnd) - 0.012604 * cos(6 * M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_BLACKMANHARRIS:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.35875 - 0.48829 * cos(2 * M_PI * windowPosition / windowEnd) + 0.14128 * cos(4 * M_PI * windowPosition / windowEnd) - 0.01168 * cos(6 * M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_BLACKMANNUTTALL:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 0.3635819 - 0.4891775 * cos(2 * M_PI * windowPosition / windowEnd) + 0.1365995 * cos(4 * M_PI * windowPosition / windowEnd) - 0.0106411 * cos(6 * M_PI * windowPosition / windowEnd);
+                    break;
+                case WINDOW_FLATTOP:
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 1.0 - 1.93 * cos(2 * M_PI * windowPosition / windowEnd) + 1.29 * cos(4 * M_PI * windowPosition / windowEnd) - 0.388 * cos(6 * M_PI * windowPosition / windowEnd) + 0.032 * cos(8 * M_PI * windowPosition / windowEnd);
+                    break;
+                default: // WINDOW_RECTANGULAR
+                    for(unsigned windowPosition = 0; windowPosition < lastRecordLength; ++windowPosition)
+                        *(window + windowPosition) = 1.0;
+            }
+        }
+
+        // Set sampling interval
+        channelData->samples.spectrum.interval = 1.0 / channelData->samples.voltage.interval / sampleCount;
+
+        // Number of real/complex samples
+        unsigned dftLength = sampleCount / 2;
+
+        // Reallocate memory for samples if the sample count has changed
+        channelData->samples.spectrum.sample.resize(sampleCount);
+
+        // Create sample buffer and apply window
+        m_windowedValues.resize(sampleCount);
+        m_correlation.resize(sampleCount);
+
+        for(unsigned position = 0; position < sampleCount; ++position)
+            m_windowedValues[position] = window[position] * channelData->samples.voltage.sample[position];
+
+        // Do discrete real to half-complex transformation
+        /// \todo Check if record length is multiple of 2
+        /// \todo Reuse plan and use FFTW_MEASURE to get fastest algorithm
+        fftw_plan fftPlan = fftw_plan_r2r_1d(sampleCount, &m_windowedValues[0],
+                                             &channelData->samples.spectrum.sample.front(),
+                                             FFTW_R2HC, FFTW_ESTIMATE);
+        fftw_execute(fftPlan);
+        fftw_destroy_plan(fftPlan);
+
+        // Do an autocorrelation to get the frequency of the signal
+        double *conjugateComplex = &m_windowedValues[0]; // Reuse the windowedValues buffer
+
+        // Real values
+        unsigned position;
+        double correctionFactor = 1.0 / dftLength / dftLength;
+        conjugateComplex[0] = (channelData->samples.spectrum.sample[0] * channelData->samples.spectrum.sample[0]) * correctionFactor;
+        for(position = 1; position < dftLength; ++position)
+            conjugateComplex[position] = (channelData->samples.spectrum.sample[position] * channelData->samples.spectrum.sample[position] + channelData->samples.spectrum.sample[sampleCount - position] * channelData->samples.spectrum.sample[sampleCount - position]) * correctionFactor;
+        // Complex values, all zero for autocorrelation
+        conjugateComplex[dftLength] = (channelData->samples.spectrum.sample[dftLength] * channelData->samples.spectrum.sample[dftLength]) * correctionFactor;
+        for(++position; position < sampleCount; ++position)
+            conjugateComplex[position] = 0;
+
+        // Do half-complex to real inverse transformation
+        fftPlan = fftw_plan_r2r_1d(sampleCount, conjugateComplex, &m_correlation[0], FFTW_HC2R, FFTW_ESTIMATE);
+        fftw_execute(fftPlan);
+        fftw_destroy_plan(fftPlan);
+
+        // Calculate peak-to-peak voltage
+        double minimalVoltage, maximalVoltage;
+        minimalVoltage = maximalVoltage = channelData->samples.voltage.sample[0];
+
+        for(unsigned position = 1; position < sampleCount; ++position) {
+            if(channelData->samples.voltage.sample[position] < minimalVoltage)
+                minimalVoltage = channelData->samples.voltage.sample[position];
+            else if(channelData->samples.voltage.sample[position] > maximalVoltage)
+                maximalVoltage = channelData->samples.voltage.sample[position];
+        }
+
+        channelData->amplitude = maximalVoltage - minimalVoltage;
+
+        // Get the frequency from the correlation results
+        double minimumCorrelation = m_correlation[0];
+        double peakCorrelation = 0;
+        unsigned peakPosition = 0;
+
+        for(unsigned position = 1; position < sampleCount / 2; ++position) {
+            if(m_correlation[position] > peakCorrelation && m_correlation[position] > minimumCorrelation * 2) {
+                peakCorrelation = m_correlation[position];
+                peakPosition = position;
+            }
+            else if(m_correlation[position] < minimumCorrelation)
+                minimumCorrelation = m_correlation[position];
+        }
+
+        // Calculate the frequency in Hz
+        if(peakPosition)
+            channelData->frequency = 1.0 / (channelData->samples.voltage.interval * peakPosition);
+        else
+            channelData->frequency = 0;
+
+        // Finally calculate the real spectrum if we want it
+        if(_analyserSettings->spectrumEnabled[channel]) {
+            // Convert values into dB (Relative to the reference level)
+            double offset = 60 - _analyserSettings->spectrumReference - 20 * log10(dftLength);
+            double offsetLimit = _analyserSettings->spectrumLimit - _analyserSettings->spectrumReference;
+            for(double& spectrumIterator: channelData->samples.spectrum.sample) {
+                double value = 20 * log10(fabs(channelData->samples.spectrum.sample[position])) + offset;
+
+                // Check if this value has to be limited
+                if(offsetLimit > value)
+                    value = offsetLimit;
+
+                spectrumIterator = value;
+            }
         }
     }
+}
+
+AnalyserSettings* DataAnalyzer::getAnalyserSettings() const
+{
+    return _analyserSettings;
+}
+
+void DataAnalyzer::setAnalyserSettings(AnalyserSettings* analyserSettings)
+{
+    _analyserSettings = analyserSettings;
+}
+
+std::shared_ptr<DSO::DeviceBase> DataAnalyzer::getDevice() const
+{
+    return _device;
 }
 
 void DataAnalyzer::analyseThread() {
@@ -359,19 +359,15 @@ void DataAnalyzer::analyseThread() {
     WindowFunction lastWindow     = WINDOW_UNDEFINED; ///< The previously used dft window function
     double *window                = nullptr; ///< The array for the dft window factors
 
-    while(1) {
-        _incoming_data_wait_mutex.lock();
-        _analyseIsRunning = true;
-        _data_in_use_mutex.lock();
-        analyseSamples();
-        _data_in_use_mutex.unlock();
+    while(_keep_thread_running) {
+        _new_data_arrived_mutex.lock();
+        computeMathChannels();
         computeFreqSpectrumPeak(lastRecordLength, lastWindow, window);
         _analyzed();
-        _analyseIsRunning = false;
 
-        static unsigned long id = 0;
-        (void)id;
-        timestampDebug("Analyzed packet " << id++);
+        //static unsigned long id = 0;
+        //(void)id;
+        //timestampDebug("Analyzed packet " << id++);
     }
 }
 
@@ -381,20 +377,15 @@ void DataAnalyzer::analyseThread() {
 /// \param samplerate The samplerate for all input data.
 /// \param append The data will be appended to the previously analyzed data (Roll mode).
 /// \param mutex The mutex for all input data.
-void DataAnalyzer::data_from_device(const std::vector<std::vector<double> > *data, double samplerate, bool append, std::mutex& mutex) {
+void DataAnalyzer::data_from_device(const std::vector<std::vector<double>>& data) {
+    // Lock the device thread, make a copy of the sample data, unlock the device thread.
     // Previous analysis still running, drop the new data
-    if(_analyseIsRunning) {
+    if(!_data_in_use_mutex.try_lock()) {
         timestampDebug("Analyzer overload, dropping packets!");
         return;
     }
-
-    // Lock the device thread, make a copy of the sample data, unlock the device thread.
-    mutex.lock();
-    _incomingData = std::vector<std::vector<double>>(*data);
-    mutex.unlock();
-    _incoming_samplerate = samplerate;
-    _incoming_append = append;
-    _incoming_data_wait_mutex.unlock(); ///< New data arrived, unlock analyse thread
+    copySamples(data, _device->getSamplerate(), _device->isRollingMode());
+    _new_data_arrived_mutex.unlock(); ///< New data arrived, unlock analyse thread
 }
 
 }

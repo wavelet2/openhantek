@@ -15,12 +15,6 @@ add_library(${PROJECT_NAME} STATIC ${SRC} ${HEADERS})
 target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARIES} libusbDSO)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
-find_package(Qt5Widgets REQUIRED)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
-target_link_libraries(${PROJECT_NAME} Qt5::Core)
-
 if (UNIX)
     find_package(Threads REQUIRED)
     target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})

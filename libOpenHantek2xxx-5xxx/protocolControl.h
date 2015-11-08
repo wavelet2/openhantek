@@ -1,8 +1,9 @@
 #pragma once
 
 #include "utils/transferBuffer.h"
-namespace Hantek {
+#include "usbCommunicationQueues.h"
 
+namespace Hantek2xxx_5xxx {
     //////////////////////////////////////////////////////////////////////////////
     /// \enum ControlCode                                           hantek/types.h
     /// \brief All supported control commands.
@@ -167,7 +168,7 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The CONTROL_BEGINCOMMAND builder.
-    class ControlBeginCommand : public TransferBuffer {
+    class ControlBeginCommand : public USBTransferBuffer, public ControlUSB {
         public:
             //////////////////////////////////////////////////////////////////////////////
             /// \enum BulkIndex
@@ -192,15 +193,15 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The CONTROL_SETOFFSET builder.
-    class ControlSetOffset : public TransferBuffer {
+    class ControlSetOffset : public USBTransferBuffer, public ControlUSB {
         public:
             ControlSetOffset();
             ControlSetOffset(uint16_t channel1, uint16_t channel2, uint16_t trigger);
 
             uint16_t getChannel(unsigned int channel);
-            void setChannel(unsigned int channel, uint16_t offset);
+            ControlSetOffset& setChannel(unsigned int channel, uint16_t offset);
             uint16_t getTrigger();
-            void setTrigger(uint16_t level);
+            ControlSetOffset& setTrigger(uint16_t level);
 
         private:
             void init();
@@ -209,17 +210,17 @@ namespace Hantek {
     //////////////////////////////////////////////////////////////////////////////
     ///
     /// \brief The CONTROL_SETRELAYS builder.
-    class ControlSetRelays : public TransferBuffer {
+    class ControlSetRelays : public USBTransferBuffer, public ControlUSB {
         public:
             ControlSetRelays(bool ch1Below1V = false, bool ch1Below100mV = false, bool ch1CouplingDC = false, bool ch2Below1V = false, bool ch2Below100mV = false, bool ch2CouplingDC = false, bool triggerExt = false);
 
             bool getBelow1V(unsigned int channel);
-            void setBelow1V(unsigned int channel, bool below);
+            ControlSetRelays& setBelow1V(unsigned int channel, bool below);
             bool getBelow100mV(unsigned int channel);
-            void setBelow100mV(unsigned int channel, bool below);
+            ControlSetRelays& setBelow100mV(unsigned int channel, bool below);
             bool getCoupling(unsigned int channel);
-            void setCoupling(unsigned int channel, bool dc);
+            ControlSetRelays& setCoupling(unsigned int channel, bool dc);
             bool getTrigger();
-            void setTrigger(bool ext);
+            ControlSetRelays& setTrigger(bool ext);
     };
 }

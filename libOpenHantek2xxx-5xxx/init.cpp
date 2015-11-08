@@ -26,7 +26,6 @@
 #include "usbCommunication.h"
 
 namespace Hantek2xxx_5xxx {
-    using namespace Hantek;
     DSO::DeviceBase* makeHantekDevice(libusb_device* device, const DSO::DSODeviceDescription& model) {
         return new HantekDevice(std::unique_ptr<DSO::USBCommunication>(new DSO::USBCommunication(device, model)));
     }
