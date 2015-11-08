@@ -316,7 +316,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
     connect(this->triggerDock, &TriggerDock::sourceChanged,
          std::bind(&DSO::DeviceBase::setTriggerSource, _device, _1, _2));
     connect(this->dsoWidget, &DsoWidget::triggerPositionChanged,
-         std::bind(&DSO::DeviceBase::updatePretriggerPosition, _device, _1));
+         std::bind(&DSO::DeviceBase::setPretriggerPosition, _device, _1));
     connect(this->triggerDock, &TriggerDock::slopeChanged,
         std::bind(&DSO::DeviceBase::setTriggerSlope, _device, _1));
     connect(this->dsoWidget, &DsoWidget::triggerLevelChanged,
@@ -338,13 +338,13 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
 
     _device->connectDevice();
 
-    for(unsigned int channel = 0; channel < this->settings->scope.physicalChannels; ++channel) {
-        _device->setCoupling(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
+    for(unsigned int channel = 0; channel < _device->getChannelCount(); ++channel) {
+        _device->setCoupling(channel, this->settings->scope.voltage[channel].coupling);
         this->updateVoltageGain(channel);
         this->updateOffset(channel);
         _device->setTriggerLevel(channel, this->settings->scope.voltage[channel].trigger);
     }
-    this->updateUsed(this->settings->scope.physicalChannels);
+    this->updateUsed(_device->getChannelCount());
     if(this->settings->scope.horizontal.samplerateSet)
         this->samplerateSelected();
     else
@@ -356,7 +356,7 @@ void OpenHantekMainWindow::setDevice(std::shared_ptr<DSO::DeviceBase> device) {
         _device->setRecordLength(index < 0 ? 1 : index);
     }
     _device->setTriggerMode(this->settings->scope.trigger.mode);
-    _device->updatePretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
+    _device->setPretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
     _device->setTriggerSlope(this->settings->scope.trigger.slope);
     _device->setTriggerSource(this->settings->scope.trigger.special, this->settings->scope.trigger.source);
 
@@ -629,7 +629,7 @@ void OpenHantekMainWindow::recordTimeChanged(double duration) {
     }
 
     // The trigger position should be kept at the same place but the timebase has changed
-    _device->updatePretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
+    _device->setPretriggerPosition(this->settings->scope.trigger.position * this->settings->scope.horizontal.timebase * DIVS_TIME);
 
     this->dsoWidget->updateTimebase(this->settings->scope.horizontal.timebase);
 }
@@ -662,14 +662,14 @@ void OpenHantekMainWindow::samplerateSelected() {
 /// \brief Sets the record time of the oscilloscope.
 void OpenHantekMainWindow::timebaseSelected() {
     if (!_device) return;
-    _device->setRecordTime(this->settings->scope.horizontal.timebase * DIVS_TIME);
+    _device->setSamplerateByRecordTime(this->settings->scope.horizontal.timebase * DIVS_TIME);
 }
 
 /// \brief Sets the offset of the oscilloscope for the given channel.
 /// \param channel The channel that got a new offset.
 void OpenHantekMainWindow::updateOffset(unsigned int channel) {
     if (!_device) return;
-    if(channel >= this->settings->scope.physicalChannels)
+    if(channel >= _device->getChannelCount())
         return;
 
     _device->setOffset(channel, (this->settings->scope.voltage[channel].offset / DIVS_VOLTAGE) + 0.5);
@@ -682,14 +682,14 @@ void OpenHantekMainWindow::updateUsed(unsigned int channel) {
     if(channel >= (unsigned int) this->settings->scope.voltage.size())
         return;
 
-    bool mathUsed = this->settings->scope.voltage[this->settings->scope.physicalChannels].used | this->settings->scope.spectrum[this->settings->scope.physicalChannels].used;
+    bool mathUsed = this->settings->scope.voltage[_device->getChannelCount()].used | this->settings->scope.spectrum[_device->getChannelCount()].used;
 
     // Normal channel, check if voltage/spectrum or math channel is used
-    if(channel < this->settings->scope.physicalChannels)
+    if(channel < _device->getChannelCount())
         _device->setChannelUsed(channel, mathUsed | this->settings->scope.voltage[channel].used | this->settings->scope.spectrum[channel].used);
     // Math channel, update all channels
-    else if(channel == this->settings->scope.physicalChannels) {
-        for(unsigned int channelCounter = 0; channelCounter < this->settings->scope.physicalChannels; ++channelCounter)
+    else if(channel == _device->getChannelCount()) {
+        for(unsigned int channelCounter = 0; channelCounter < _device->getChannelCount(); ++channelCounter)
             _device->setChannelUsed(channelCounter, mathUsed | this->settings->scope.voltage[channelCounter].used | this->settings->scope.spectrum[channelCounter].used);
     }
 }
@@ -698,7 +698,7 @@ void OpenHantekMainWindow::updateUsed(unsigned int channel) {
 /// \param channel The channel that got a new gain value.
 void OpenHantekMainWindow::updateVoltageGain(unsigned int channel) {
     if (!_device) return;
-    if(channel >= this->settings->scope.physicalChannels)
+    if(channel >= _device->getChannelCount())
         return;
 
     _device->setGain(channel, this->settings->scope.voltage[channel].gain * DIVS_VOLTAGE);

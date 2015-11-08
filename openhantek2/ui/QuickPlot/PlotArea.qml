@@ -17,6 +17,7 @@ Rectangle {
     property color axesColor: Qt.rgba(0.5, 0.5, 0.5, 0.5)
 
     property var xScaleEngine: ScaleEngine {
+        id: xScale
         axis: Qt.XAxis
     }
 

@@ -1,52 +1,7 @@
 import QtQuick 2.0
 import QtQuick.Controls 1.3
-import QuickPlot 1.0
-import "qrc:QuickPlot"
-//import kde.Plotter 2.0
 
 Item {
-    id: rectangle
-
-    property alias btnPreferences: btnPreferences
-
-    PlotArea {
-        anchors.fill: parent
-        color: screenColors.background
-        borderColor: screenColors.border
-        gridColor: screenColors.grid
-        markersColor: screenColors.markers
-        textColor: screenColors.text
-        axesColor: screenColors.axes
-
-        yScaleEngine: ScaleEngine {
-            fixed: true
-            max: 1.5
-            min: -1.5
-        }
-
-        items: [
-            ScrollingCurve {
-                id: meter;
-                numPoints: 300
-                color: "red"
-            }
-        ]
-    }
-
-    Timer {
-        id: timer;
-        interval: 20;
-        repeat: true;
-        running: true;
-
-        property real pos: 0
-
-        onTriggered: {
-            meter.appendDataPoint( Math.sin(pos) );
-            pos += 0.05;
-        }
-    }
-
 // For digital phosphor effect
 //    Rectangle {
 //        id: rectangle_c
@@ -84,15 +39,4 @@ Item {
 //                gl_FragColor = texture2D(source, coord) * qt_Opacity;
 //            }"
 //    }
-
-    Button {
-        id: btnPreferences
-        iconSource: "qrc:preferences.png"
-        width: 32
-        height: 32
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: 10
-        anchors.rightMargin: 10
-    }
 }

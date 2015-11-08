@@ -38,6 +38,8 @@
 #include "levelslider.h"
 #include "settings.h"
 
+#include "deviceBase.h"
+
 void DsoWidget::setDataAnalyzer(std::shared_ptr<DSOAnalyser::DataAnalyzer> &dataAnalyzer) {
     if(this->dataAnalyzer)
         this->dataAnalyzer->_analyzed = [](){};
@@ -99,7 +101,7 @@ void DsoWidget::setDataAnalyzer(std::shared_ptr<DSOAnalyser::DataAnalyzer> &data
         this->measurementLayout->addWidget(this->measurementMagnitudeLabel[channel], channel, 3);
         this->measurementLayout->addWidget(this->measurementAmplitudeLabel[channel], channel, 4);
         this->measurementLayout->addWidget(this->measurementFrequencyLabel[channel], channel, 5);
-        if((unsigned int) channel < this->settings->scope.physicalChannels)
+        if((unsigned int) channel < this->settings->device->getChannelCount())
             this->updateVoltageCoupling(channel);
         else
             this->updateMathMode();
@@ -151,7 +153,7 @@ DsoWidget::DsoWidget(OpenHantekSettings *settings, QWidget *parent, Qt::WindowFl
 
     // The sliders for the trigger levels
     this->triggerLevelSlider = new LevelSlider(Qt::LeftArrow);
-    for(int channel = 0; channel < (int) this->settings->scope.physicalChannels; ++channel) {
+    for(int channel = 0; channel < (int) this->settings->device->getChannelCount(); ++channel) {
         this->triggerLevelSlider->addSlider(channel);
         this->triggerLevelSlider->setColor(channel, (!this->settings->scope.trigger.special && channel == (int) this->settings->scope.trigger.source) ? this->settings->view.color.screen.voltage[channel] : this->settings->view.color.screen.voltage[channel].darker());
         this->adaptTriggerLevelSlider(channel);
@@ -173,9 +175,9 @@ DsoWidget::DsoWidget(OpenHantekSettings *settings, QWidget *parent, Qt::WindowFl
         this->markerSlider->addSlider(QString::number(marker + 1), marker);
         this->markerSlider->setLimits(marker, -DIVS_TIME / 2, DIVS_TIME / 2);
         this->markerSlider->setStep(marker, 0.2);
-        this->markerSlider->setValue(marker, this->settings->scope.horizontal.marker[marker]);
+        this->markerSlider->setValue(marker, this->settings->scope.horizontal.marker[marker].position);
         this->markerSlider->setVisible(marker, true);
-        this->settings->scope.horizontal.marker_visible[marker] = true;
+        this->settings->scope.horizontal.marker[marker].visible = true;
     }
 
     // The table for the settings
@@ -307,7 +309,7 @@ void DsoWidget::setMeasurementVisible(unsigned int channel, bool visible) {
 
 /// \brief Update the label about the marker measurements
 void DsoWidget::updateMarkerDetails() {
-    double divs = fabs(this->settings->scope.horizontal.marker[1] - this->settings->scope.horizontal.marker[0]);
+    double divs = fabs(this->settings->scope.horizontal.marker[1].position - this->settings->scope.horizontal.marker[0].position);
     double time = divs * this->settings->scope.horizontal.timebase;
 
     if(this->settings->view.zoom) {
@@ -416,12 +418,12 @@ void DsoWidget::updateTriggerSlope() {
 /// \brief Handles sourceChanged signal from the trigger dock.
 void DsoWidget::updateTriggerSource() {
     // Change the colors of the trigger sliders
-    if(this->settings->scope.trigger.special || this->settings->scope.trigger.source >= this->settings->scope.physicalChannels)
+    if(this->settings->scope.trigger.special || this->settings->scope.trigger.source >= this->settings->device->getChannelCount())
         this->triggerPositionSlider->setColor(0, this->settings->view.color.screen.border);
     else
         this->triggerPositionSlider->setColor(0, this->settings->view.color.screen.voltage[this->settings->scope.trigger.source]);
 
-    for(int channel = 0; channel < (int) this->settings->scope.physicalChannels; ++channel)
+    for(int channel = 0; channel < (int) this->settings->device->getChannelCount(); ++channel)
         this->triggerLevelSlider->setColor(channel, (!this->settings->scope.trigger.special && channel == (int) this->settings->scope.trigger.source) ? this->settings->view.color.screen.voltage[channel] : this->settings->view.color.screen.voltage[channel].darker());
 
     this->updateTriggerDetails(this->settings->scope.trigger.source);
@@ -433,12 +435,12 @@ void DsoWidget::updateVoltageCoupling(unsigned int channel) {
     if(channel >= (unsigned int) this->settings->scope.voltage.size())
         return;
 
-    this->measurementMiscLabel[channel]->setText(DsoStrings::couplingString((DSO::Coupling) this->settings->scope.voltage[channel].misc));
+    this->measurementMiscLabel[channel]->setText(DsoStrings::couplingString(this->settings->scope.voltage[channel].coupling));
 }
 
 /// \brief Handles modeChanged signal from the voltage dock.
 void DsoWidget::updateMathMode() {
-    this->measurementMiscLabel[this->settings->scope.physicalChannels]->setText(DsoStrings::mathModeString((DSOAnalyser::MathMode) this->settings->scope.voltage[this->settings->scope.physicalChannels].misc));
+    this->measurementMiscLabel[this->settings->device->getChannelCount()]->setText(DsoStrings::mathModeString(this->settings->scope.voltage[this->settings->device->getChannelCount()].mathmode));
 }
 
 /// \brief Handles gainChanged signal from the voltage dock.
@@ -447,7 +449,7 @@ void DsoWidget::updateVoltageGain(unsigned int channel) {
     if(channel >= (unsigned int) this->settings->scope.voltage.size())
         return;
 
-    if(channel < this->settings->scope.physicalChannels)
+    if(channel < this->settings->device->getChannelCount())
         this->adaptTriggerLevelSlider(channel);
 
     this->updateVoltageDetails(channel);
@@ -540,7 +542,7 @@ void DsoWidget::updateOffset(unsigned channel, double value) {
     if(channel < this->settings->scope.voltage.size()) {
         this->settings->scope.voltage[channel].offset = value;
 
-        if(channel < this->settings->scope.physicalChannels)
+        if(channel < this->settings->device->getChannelCount())
             this->adaptTriggerLevelSlider(channel);
     }
     else if(channel < this->settings->scope.voltage.size() * 2)
@@ -578,7 +580,7 @@ void DsoWidget::updateTriggerLevel(int channel, double value) {
 /// \param marker The index of the slider.
 /// \param value The new marker position.
 void DsoWidget::updateMarker(int marker, double value) {
-    this->settings->scope.horizontal.marker[marker] = value;
+    this->settings->scope.horizontal.marker[marker].position = value;
 
     this->updateMarkerDetails();
 

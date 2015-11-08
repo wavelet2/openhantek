@@ -21,7 +21,7 @@ Item {
         border.width: 1
         anchors.centerIn: parent
         color: "#f9f6f3"
-        height: 220
+        height: 260
         width: 250
 
         Label {
@@ -101,7 +101,7 @@ Item {
         border.width: 1
         anchors.centerIn: parent
         color: "#f9f6f3"
-        height: 220
+        height: 260
         width: 250
 
         Label {
@@ -119,7 +119,7 @@ Item {
             id: supportedDevicesContainer
             anchors.margins: 5
             anchors.top: no_devices_found.bottom
-            anchors.bottom: connection_issues.top
+            anchors.bottom: btnDemoMode.top
             anchors.left: parent.left
             anchors.right: parent.right
             ListView {
@@ -142,7 +142,17 @@ Item {
         }
 
         Button {
-            id: connection_issues
+            id: btnDemoMode
+            anchors.margins: 5
+            anchors.bottom: btnConnectionIssues.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            onClicked: currentDevice.setDemoDevice()
+            text: qsTr("Demo Mode (Sine Wave)")
+        }
+
+        Button {
+            id: btnConnectionIssues
             anchors.margins: 5
             anchors.bottom: parent.bottom
             anchors.left: parent.left

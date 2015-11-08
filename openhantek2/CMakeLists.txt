@@ -35,7 +35,7 @@ add_definitions(-DVERSION="${VERSION}")
 # make executable
 add_executable(${PROJECT_NAME} ${SRC} ${HEADERS} ${QRC} ${RESOURCES} ${UI})
 target_link_libraries(${PROJECT_NAME} Qt5::Quick Qt5::PrintSupport Qt5::OpenGL
-    libusbDSO libOpenHantek2xxx-5xxx libOpenHantek60xx libPostprocessingDSO
+    libusbDSO libOpenHantek2xxx-5xxx libOpenHantek60xx libDemoDevice libPostprocessingDSO
     ${OPENGL_LIBRARIES} quickplotqmlplugin)
 #target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 

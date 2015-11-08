@@ -88,8 +88,8 @@ void GlScope::paintGL() {
         // Apply zoom settings via matrix transformation
         if(this->zoomed) {
             glPushMatrix();
-            glScalef(DIVS_TIME / fabs(this->settings->scope.horizontal.marker[1] - this->settings->scope.horizontal.marker[0]), 1.0, 1.0);
-            glTranslatef(-(this->settings->scope.horizontal.marker[0] + this->settings->scope.horizontal.marker[1]) / 2, 0.0, 0.0);
+            glScalef(DIVS_TIME / fabs(this->settings->scope.horizontal.marker[1].position - this->settings->scope.horizontal.marker[0].position), 1.0, 1.0);
+            glTranslatef(-(this->settings->scope.horizontal.marker[0].position + this->settings->scope.horizontal.marker[1].position) / 2, 0.0, 0.0);
         }
 
         // Values we need for the fading of the digital phosphor
@@ -100,7 +100,7 @@ void GlScope::paintGL() {
             fadingFactor[index] = fadingFactor[index - 1] * fadingRatio;
 
         switch(this->settings->scope.horizontal.format) {
-            case DSOAnalyser::GRAPHFORMAT_TY:
+            case GraphFormat::TY:
                 // Real and virtual channels
                 for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
                     for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
@@ -121,7 +121,7 @@ void GlScope::paintGL() {
                 }
                 break;
 
-            case DSOAnalyser::GRAPHFORMAT_XY:
+            case GraphFormat::XY:
                 // Real and virtual channels
                 for(unsigned channel = 0; channel < this->settings->scope.voltage.size() - 1; channel += 2) {
                     if(this->settings->scope.voltage[channel].used) {
@@ -156,7 +156,7 @@ void GlScope::paintGL() {
         this->qglColor(this->settings->view.color.screen.markers);
 
         for(int marker = 0; marker < MARKER_COUNT; ++marker) {
-            if (!this->settings->scope.horizontal.marker_visible[marker])
+            if (!this->settings->scope.horizontal.marker[marker].visible)
                 continue;
             if(this->vaMarker[marker].size() != 4) {
                 this->vaMarker[marker].resize(2 * 2);
@@ -164,8 +164,8 @@ void GlScope::paintGL() {
                 this->vaMarker[marker][3] = DIVS_VOLTAGE;
             }
 
-            this->vaMarker[marker][0] = this->settings->scope.horizontal.marker[marker];
-            this->vaMarker[marker][2] = this->settings->scope.horizontal.marker[marker];
+            this->vaMarker[marker][0] = this->settings->scope.horizontal.marker[marker].position;
+            this->vaMarker[marker][2] = this->settings->scope.horizontal.marker[marker].position;
 
             glVertexPointer(2, GL_FLOAT, 0, &this->vaMarker[marker].front());
             glDrawArrays(GL_LINES, 0, this->vaMarker[marker].size() / 2);

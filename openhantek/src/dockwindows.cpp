@@ -36,6 +36,7 @@
 #include "unitToString.h"
 #include "dsostrings.h"
 
+#include "deviceBase.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // class HorizontalDock
@@ -72,8 +73,8 @@ HorizontalDock::HorizontalDock(OpenHantekSettings *settings, QWidget *parent, Qt
 
     this->formatLabel = new QLabel(tr("Format"));
     this->formatComboBox = new QComboBox();
-    for(int format = (int)DSOAnalyser::GRAPHFORMAT_TY; format < (int)DSOAnalyser::GRAPHFORMAT_COUNT; ++format)
-        this->formatComboBox->addItem(DsoStrings::graphFormatString((DSOAnalyser::GraphFormat) format));
+    for(int format = (int)GraphFormat::TY; format < (int)GraphFormat::COUNT; ++format)
+        this->formatComboBox->addItem(DsoStrings::graphFormatString((GraphFormat) format));
 
     this->dockLayout = new QGridLayout();
     this->dockLayout->setColumnMinimumWidth(0, 64);
@@ -162,12 +163,12 @@ void HorizontalDock::setRecordLength(unsigned int recordLength) {
 /// \brief Changes the format if the new value is supported.
 /// \param format The format for the horizontal axis.
 /// \return Index of format-value, -1 on error.
-int HorizontalDock::setFormat(DSOAnalyser::GraphFormat format) {
-    if(format >= DSOAnalyser::GRAPHFORMAT_TY && format <= DSOAnalyser::GRAPHFORMAT_XY) {
+int HorizontalDock::setFormat(GraphFormat format) {
+    if(format >= GraphFormat::TY && format <= GraphFormat::XY) {
         this->suppressSignals = true;
-        this->formatComboBox->setCurrentIndex(format);
+        this->formatComboBox->setCurrentIndex((int)format);
         this->suppressSignals = false;
-        return format;
+        return (int)format;
     }
 
     return -1;
@@ -251,7 +252,7 @@ void HorizontalDock::recordLengthSelected(int index) {
 /// \brief Called when the format combo box changes its value.
 /// \param index The index of the combo box item.
 void HorizontalDock::formatSelected(int index) {
-    this->settings->scope.horizontal.format = (DSOAnalyser::GraphFormat) index;
+    this->settings->scope.horizontal.format = (GraphFormat) index;
     if(!this->suppressSignals)
         emit formatChanged(this->settings->scope.horizontal.format);
 }
@@ -325,17 +326,17 @@ void TriggerDock::closeEvent(QCloseEvent *event) {
 /// \return Index of mode-value, -1 on error.
 void TriggerDock::setChannels(const std::vector<std::string> &specialTriggers) {
     // Initialize lists for comboboxes
-    for(unsigned channel = 0; channel < this->settings->scope.physicalChannels; ++channel)
+    for(unsigned channel = 0; channel < this->settings->device->getChannelCount(); ++channel)
         this->sourceStandardStrings << tr("CH%1").arg(channel + 1);
     for(const std::string& s: specialTriggers)
         this->sourceSpecialStrings << QString::fromStdString(s);
 
     this->modeComboBox->clear();
-    for(int mode = (int)DSO::TriggerMode::TRIGGERMODE_AUTO; mode < (int)DSO::TriggerMode::TRIGGERMODE_COUNT; ++mode)
+    for(int mode = (int)DSO::TriggerMode::AUTO; mode < (int)DSO::TriggerMode::COUNT; ++mode)
         this->modeComboBox->addItem(DsoStrings::triggerModeString((DSO::TriggerMode) mode));
 
     this->slopeComboBox->clear();
-    for(int slope = (int)DSO::Slope::SLOPE_POSITIVE; slope < (int)DSO::Slope::SLOPE_COUNT; ++slope)
+    for(int slope = (int)DSO::Slope::POSITIVE; slope < (int)DSO::Slope::COUNT; ++slope)
         this->slopeComboBox->addItem(DsoStrings::slopeString((DSO::Slope) slope));
 
     this->sourceComboBox->clear();
@@ -347,7 +348,7 @@ void TriggerDock::setChannels(const std::vector<std::string> &specialTriggers) {
 /// \param mode The trigger mode.
 /// \return Index of mode-value, -1 on error.
 int TriggerDock::setMode(DSO::TriggerMode mode) {
-    if(mode >= DSO::TriggerMode::TRIGGERMODE_AUTO && mode <=DSO::TriggerMode::TRIGGERMODE_SINGLE) {
+    if(mode >= DSO::TriggerMode::AUTO && mode <=DSO::TriggerMode::SINGLE) {
         this->modeComboBox->setCurrentIndex((int)mode);
         return (int)mode;
     }
@@ -359,7 +360,7 @@ int TriggerDock::setMode(DSO::TriggerMode mode) {
 /// \param slope The trigger slope.
 /// \return Index of slope-value, -1 on error.
 int TriggerDock::setSlope(DSO::Slope slope) {
-    if(slope >= DSO::Slope::SLOPE_POSITIVE && slope <= DSO::Slope::SLOPE_NEGATIVE) {
+    if(slope >= DSO::Slope::POSITIVE && slope <= DSO::Slope::NEGATIVE) {
         this->slopeComboBox->setCurrentIndex((int)slope);
         return (int)slope;
     }
@@ -551,10 +552,10 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     this->settings = settings;
 
     // Initialize lists for comboboxes
-    for(int coupling = (int)DSO::Coupling::COUPLING_AC; coupling < (int)DSO::Coupling::COUPLING_COUNT; ++coupling)
+    for(int coupling = 0; coupling < (int)DSO::Coupling::COUNT; ++coupling)
         this->couplingStrings.append(DsoStrings::couplingString((DSO::Coupling) coupling));
 
-    for(int mode = DSOAnalyser::MATHMODE_1ADD2; mode < DSOAnalyser::MATHMODE_COUNT; ++mode)
+    for(int mode = 0; mode < (int)DSOAnalyser::MathMode::COUNT; ++mode)
         this->modeStrings.append(DsoStrings::mathModeString((DSOAnalyser::MathMode) mode));
 
     this->gainSteps             << 1e-2 << 2e-2 << 5e-2 << 1e-1 << 2e-1 << 5e-1
@@ -565,7 +566,7 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
     // Initialize elements
     for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
         this->miscComboBox.append(new QComboBox());
-        if(channel < this->settings->scope.physicalChannels)
+        if(channel < this->settings->device->getChannelCount())
             this->miscComboBox[channel]->addItems(this->couplingStrings);
         else
             this->miscComboBox[channel]->addItems(this->modeStrings);
@@ -603,10 +604,10 @@ VoltageDock::VoltageDock(OpenHantekSettings *settings, QWidget *parent, Qt::Wind
 
     // Set values
     for(unsigned channel = 0; channel < this->settings->scope.voltage.size(); ++channel) {
-        if(channel < this->settings->scope.physicalChannels)
-            this->setCoupling(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
+        if(channel < this->settings->device->getChannelCount())
+            this->setCoupling(channel, this->settings->scope.voltage[channel].coupling);
         else
-            this->setMode((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc);
+            this->setMode(this->settings->scope.voltage[channel].mathmode);
         this->setGain(channel, this->settings->scope.voltage[channel].gain);
         this->setUsed(channel, this->settings->scope.voltage[channel].used);
     }
@@ -629,9 +630,9 @@ void VoltageDock::closeEvent(QCloseEvent *event) {
 /// \param coupling The coupling-mode.
 /// \return Index of coupling-mode, -1 on error.
 int VoltageDock::setCoupling(unsigned channel, DSO::Coupling coupling) {
-    if(coupling < DSO::Coupling::COUPLING_AC || coupling > DSO::Coupling::COUPLING_GND)
+    if(coupling < DSO::Coupling::AC || coupling > DSO::Coupling::GND)
         return -1;
-    if(channel < 0 || channel >= this->settings->scope.physicalChannels)
+    if(channel < 0 || channel >= this->settings->device->getChannelCount())
         return -1;
 
     this->miscComboBox[channel]->setCurrentIndex((int)coupling);
@@ -657,9 +658,9 @@ int VoltageDock::setGain(unsigned channel, double gain) {
 /// \param mode The math-mode.
 /// \return Index of math-mode, -1 on error.
 int VoltageDock::setMode(DSOAnalyser::MathMode mode) {
-    if(mode >= DSOAnalyser::MATHMODE_1ADD2 && mode <= DSOAnalyser::MATHMODE_2SUB1) {
-        this->miscComboBox[this->settings->scope.physicalChannels]->setCurrentIndex(mode);
-        return mode;
+    if((int)mode >= 0 && mode < DSOAnalyser::MathMode::COUNT) {
+        this->miscComboBox[this->settings->device->getChannelCount()]->setCurrentIndex((int)mode);
+        return (int)mode;
     }
 
     return -1;
@@ -708,11 +709,13 @@ void VoltageDock::miscSelected(int index) {
 
     // Send signal if it was one of the comboboxes
     if(channel < this->settings->scope.voltage.size()) {
-        this->settings->scope.voltage[channel].misc = index;
-        if(channel < this->settings->scope.physicalChannels)
-            emit couplingChanged(channel, (DSO::Coupling) this->settings->scope.voltage[channel].misc);
-        else
-            emit modeChanged((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc);
+        if(channel < this->settings->device->getChannelCount()) {
+            this->settings->scope.voltage[channel].coupling = (DSO::Coupling) index;
+            emit couplingChanged(channel, this->settings->scope.voltage[channel].coupling);
+        } else {
+            this->settings->scope.voltage[channel].mathmode = (DSOAnalyser::MathMode) index;
+            emit modeChanged((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].mathmode);
+        }
     }
 }
 

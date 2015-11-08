@@ -43,6 +43,8 @@
 #include "settings.h"
 #include "dsostrings.h"
 
+#include "deviceBase.h"
+
 ////////////////////////////////////////////////////////////////////////////////
 // class HorizontalDock
 /// \brief Initializes the printer object.
@@ -157,12 +159,12 @@ bool Exporter::doExport() {
                 painter.drawText(QRectF(0, top, lineHeight * 4, lineHeight),
                                  QString::fromStdString(this->settings->scope.voltage[channel].name));
                 // Print coupling/math mode
-                if((unsigned int) channel < this->settings->scope.physicalChannels)
+                if((unsigned int) channel < settings->device->getChannelCount())
                     painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight),
-                                     DsoStrings::couplingString((DSO::Coupling) this->settings->scope.voltage[channel].misc));
+                                     DsoStrings::couplingString(this->settings->scope.voltage[channel].coupling));
                 else
                     painter.drawText(QRectF(lineHeight * 4, top, lineHeight * 2, lineHeight),
-                                     DsoStrings::mathModeString((DSOAnalyser::MathMode) this->settings->scope.voltage[channel].misc));
+                                     DsoStrings::mathModeString(this->settings->scope.voltage[channel].mathmode));
 
                 // Print voltage gain
                 painter.drawText(QRectF(lineHeight * 6, top, stretchBase * 2, lineHeight), UnitToString::valueToString(this->settings->scope.voltage[channel].gain, UnitToString::UNIT_VOLTS, 0) + tr("/div"), QTextOption(Qt::AlignRight));
@@ -184,10 +186,10 @@ bool Exporter::doExport() {
         painter.setPen(colorValues->text);
 
         // Calculate variables needed for zoomed scope
-        double divs = fabs(this->settings->scope.horizontal.marker[1] - this->settings->scope.horizontal.marker[0]);
+        double divs = fabs(this->settings->scope.horizontal.marker[1].position - this->settings->scope.horizontal.marker[0].position);
         double time = divs * this->settings->scope.horizontal.timebase;
         double zoomFactor = DIVS_TIME / divs;
-        double zoomOffset = (this->settings->scope.horizontal.marker[0] + this->settings->scope.horizontal.marker[1]) / 2;
+        double zoomOffset = (this->settings->scope.horizontal.marker[0].position + this->settings->scope.horizontal.marker[1].position) / 2;
 
         if(this->settings->view.zoom) {
             scopeHeight = (double) (paintDevice->height() - (channelCount + 5) * lineHeight) / 2;
@@ -220,7 +222,7 @@ bool Exporter::doExport() {
 
         for(unsigned zoomed = 0; zoomed < (this->settings->view.zoom ? 2 : 1); ++zoomed) {
             switch(this->settings->scope.horizontal.format) {
-                case DSOAnalyser::GRAPHFORMAT_TY:
+                case GraphFormat::TY:
                     // Add graphs for channels
                     for(unsigned channel = 0 ; channel < this->settings->scope.voltage.size(); ++channel) {
                         if(this->settings->scope.voltage[channel].used && this->dataAnalyzer->data(channel)) {
@@ -284,7 +286,7 @@ bool Exporter::doExport() {
                     }
                     break;
 
-                case DSOAnalyser::GRAPHFORMAT_XY:
+                case GraphFormat::XY:
                     break;
 
                 default:

@@ -152,13 +152,13 @@ QHash<int, QByteArray> ScopeColors::roleNames() const
 void ScopeColors::channelsChanged(int channels)
 {
     m_channels = channels;
-    spectrum.resize(channels);
-    voltage.resize(channels);
     readColors();
 }
 
 void ScopeColors::readColors()
 {
+    spectrum.resize(m_channels);
+    voltage.resize(m_channels);
     beginResetModel();
     QSettings s;
     s.beginGroup("color_"+m_type);
@@ -169,10 +169,10 @@ void ScopeColors::readColors()
         grid = s.value("grid",            QColor(0x00, 0x00, 0x00, 0x7f)).value<QColor>();
         markers = s.value("markers",      QColor(0x00, 0x00, 0x00, 0xef)).value<QColor>();
         text = s.value("text",            QColor(0x00, 0x00, 0x00, 0xff)).value<QColor>();
-        for (unsigned channel = 0; channel < spectrum.size(); ++channel) {
+        for (unsigned channel = 0; channel < m_channels; ++channel) {
             QColor base = QColor::fromHsv(channel * 60, 0xff, 0xff);
-            voltage.insert(voltage.begin()+channel,   s.value("voltage" +channel,base.darker(120)).value<QColor>());
-            spectrum.insert(spectrum.begin()+channel, s.value("spectrum"+channel,base.darker()).value<QColor>());
+            voltage[channel] = s.value("voltage" +channel,base.darker(120)).value<QColor>();
+            spectrum[channel] = s.value("spectrum"+channel,base.darker()).value<QColor>();
         }
     } else {
         axes = s.value("axes",            QColor(0xff, 0xff, 0xff, 0x7f)).value<QColor>();
@@ -181,10 +181,10 @@ void ScopeColors::readColors()
         grid = s.value("grid",            QColor(0xff, 0xff, 0xff, 0x3f)).value<QColor>();
         markers = s.value("markers",      QColor(0xff, 0xff, 0xff, 0xbf)).value<QColor>();
         text = s.value("text",            QColor(0xff, 0xff, 0xff, 0xff)).value<QColor>();
-        for (unsigned channel = 0; channel < spectrum.size(); ++channel) {
+        for (unsigned channel = 0; channel < m_channels; ++channel) {
             QColor base = QColor::fromHsv(channel * 60, 0xff, 0xff);
-            voltage.insert(voltage.begin()+channel,   s.value("voltage" +channel,base).value<QColor>());
-            spectrum.insert(spectrum.begin()+channel, s.value("spectrum"+channel,base.lighter()).value<QColor>());
+            voltage[channel] = s.value("voltage" +channel,base).value<QColor>();
+            spectrum[channel] = s.value("spectrum"+channel,base.lighter()).value<QColor>();
         }
     }
     endResetModel();
@@ -200,7 +200,7 @@ void ScopeColors::writeColors()
     s.setValue("grid", grid);
     s.setValue("markers", markers);
     s.setValue("text", text);
-    for (unsigned channel = 0; channel < spectrum.size(); ++channel) {
+    for (unsigned channel = 0; channel < m_channels; ++channel) {
         s.setValue("voltage"+channel, voltage[channel]);
         s.setValue("spectrum"+channel, spectrum[channel]);
     }

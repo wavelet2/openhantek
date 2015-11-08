@@ -2,6 +2,8 @@ import QtQuick 2.4
 import QtQuick.Controls 1.3
 import QtQuick.Layouts 1.1
 import Qt.labs.settings 1.0
+import QuickPlot 1.0
+import "qrc:QuickPlot"
 
 Item {
     id: page
@@ -132,8 +134,8 @@ Item {
         property alias groupVoltage: groupVoltage.contentVisible
     }
 
-
-    PlotterItem {
+    Item {
+        id: plot
         anchors.leftMargin: 10
         Layout.minimumWidth: 200
         anchors {
@@ -142,7 +144,33 @@ Item {
             top: parent.top
             bottom: parent.bottom
         }
-        btnPreferences.onClicked: scopeSettingsDialog.open()
+
+        PlotArea {
+            id: plotarea
+            anchors.fill: parent
+            color: screenColors.background
+            borderColor: screenColors.border
+            gridColor: screenColors.grid
+            markersColor: screenColors.markers
+            textColor: screenColors.text
+            axesColor: screenColors.axes
+
+            yScaleEngine: currentDevice.yScaleEngine
+            xScaleEngine: currentDevice.xScaleEngine
+            items: currentDevice.channels
+        }
+
+        Button {
+            id: btnPreferences
+            iconSource: "qrc:preferences.png"
+            width: 32
+            height: 32
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            anchors.rightMargin: 10
+            onClicked: scopeSettingsDialog.open()
+        }
     }
 
     ScopeSettingsDialog {

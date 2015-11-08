@@ -73,7 +73,7 @@ Q_SIGNALS:
     void markersChanged();
     void textChanged();
 private:
-    int m_channels;
+    unsigned m_channels = 0;
     QString m_type;
     void readColors();
     void writeColors();

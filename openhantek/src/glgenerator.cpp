@@ -63,65 +63,71 @@ void GlGenerator::generateGraphs(OpenHantekSettings *settings, std::shared_ptr<D
     dataAnalyzer->mutex().lock();
 
     switch(settings->scope.horizontal.format) {
-        case DSOAnalyser::GRAPHFORMAT_TY:
-            // Add graphs for channels
-            for(int mode = CHANNELMODE_VOLTAGE; mode < CHANNELMODE_COUNT; ++mode) {
-                for(unsigned channel = 0; channel < settings->scope.voltage.size(); ++channel) {
-                    // Check if this channel is used and available at the data analyzer
-                    if(((mode == CHANNELMODE_VOLTAGE) ? settings->scope.voltage[channel].used : settings->scope.spectrum[channel].used) && dataAnalyzer->data(channel) && !dataAnalyzer->data(channel)->samples.voltage.sample.empty()) {
-                        // Check if the sample count has changed
-                        unsigned int sampleCount = (mode == CHANNELMODE_VOLTAGE) ? dataAnalyzer->data(channel)->samples.voltage.sample.size() : dataAnalyzer->data(channel)->samples.spectrum.sample.size();
-                        unsigned int neededSize = sampleCount * 2;
-                        for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index) {
-                            if(this->vaChannel[mode][channel][index].size() != neededSize)
-                                this->vaChannel[mode][channel][index].clear(); // Something was changed, drop old traces
-                        }
+        case GraphFormat::TY:
+        for(unsigned int channel = 0; channel < this->vaChannel[CHANNELMODE_VOLTAGE].size(); ++channel) {
+            if (!settings->scope.voltage[channel].used) {
+                for(std::vector<float>& vector: this->vaChannel[CHANNELMODE_VOLTAGE][channel])
+                    vector.clear();
+            } else {
+                // Check if the sample count has changed
+                unsigned int sampleCount = dataAnalyzer->data(channel)->samples.voltage.sample.size();
+                for(std::vector<float>& vector: this->vaChannel[CHANNELMODE_VOLTAGE][channel])
+                    if (vector.size() != sampleCount * 2) vector.clear();
 
-                        // Set size directly to avoid reallocations
-                        this->vaChannel[mode][channel].front().resize(neededSize);
+                // Set size directly to avoid reallocations
+                this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().resize(sampleCount * 2);
 
-                        // Iterator to data for direct access
-                        std::vector<float>::iterator glIterator = this->vaChannel[mode][channel].front().begin();
+                // Iterator to data for direct access
+                std::vector<float>::iterator glIterator = this->vaChannel[CHANNELMODE_VOLTAGE][channel].front().begin();
 
-                        // What's the horizontal distance between sampling points?
-                        double horizontalFactor;
-                        if(mode == CHANNELMODE_VOLTAGE)
-                            horizontalFactor = dataAnalyzer->data(channel)->samples.voltage.interval / settings->scope.horizontal.timebase;
-                        else
-                            horizontalFactor = dataAnalyzer->data(channel)->samples.spectrum.interval / settings->scope.horizontal.frequencybase;
+                // What's the horizontal distance between sampling points?
+                double horizontalFactor;
+                horizontalFactor = dataAnalyzer->data(channel)->samples.voltage.interval / settings->scope.horizontal.timebase;
 
-                        // Fill vector array
-                        if(mode == CHANNELMODE_VOLTAGE) {
-                            std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.voltage.sample.begin();
-                            const double gain = settings->scope.voltage[channel].gain;
-                            const double offset = settings->scope.voltage[channel].offset;
+                std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.voltage.sample.begin();
+                const double gain = settings->scope.voltage[channel].gain;
+                const double offset = settings->scope.voltage[channel].offset;
 
-                            for(unsigned int position = 0; position < sampleCount; ++position) {
-                                *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2;
-                                *(glIterator++) = *(dataIterator++) / gain + offset;
-                            }
-                        }
-                        else {
-                            std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.spectrum.sample.begin();
-                            const double magnitude = settings->scope.spectrum[channel].magnitude;
-                            const double offset = settings->scope.spectrum[channel].offset;
-
-                            for(unsigned int position = 0; position < sampleCount; ++position) {
-                                *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2;
-                                *(glIterator++) = *(dataIterator++) / magnitude + offset;
-                            }
-                        }
-                    }
-                    else {
-                        // Delete all vector arrays
-                        for(unsigned int index = 0; index < this->digitalPhosphorDepth; ++index)
-                            this->vaChannel[mode][channel][index].clear();
-                    }
+                for(unsigned int position = 0; position < sampleCount; ++position) {
+                    *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2; //X
+                    *(glIterator++) = *(dataIterator++) / gain + offset;           //Y
                 }
             }
-            break;
+        }
+        for(unsigned int channel = 0; channel < this->vaChannel[CHANNELMODE_SPECTRUM].size(); ++channel) {
+            if (!settings->scope.spectrum[channel].used) {
+                for(std::vector<float>& vector: this->vaChannel[CHANNELMODE_SPECTRUM][channel])
+                    vector.clear();
+            } else {
+                // Check if the sample count has changed
+                unsigned int sampleCount = dataAnalyzer->data(channel)->samples.spectrum.sample.size();
+                for(std::vector<float>& vector: this->vaChannel[CHANNELMODE_SPECTRUM][channel])
+                    if (vector.size() != sampleCount * 2) vector.clear();
 
-        case DSOAnalyser::GRAPHFORMAT_XY:
+
+                // Set size directly to avoid reallocations
+                this->vaChannel[CHANNELMODE_SPECTRUM][channel].front().resize(sampleCount * 2);
+
+                // Iterator to data for direct access
+                std::vector<float>::iterator glIterator = this->vaChannel[CHANNELMODE_SPECTRUM][channel].front().begin();
+
+                // What's the horizontal distance between sampling points?
+                double horizontalFactor;
+                horizontalFactor = dataAnalyzer->data(channel)->samples.spectrum.interval / settings->scope.horizontal.frequencybase;
+
+                std::vector<double>::const_iterator dataIterator = dataAnalyzer->data(channel)->samples.spectrum.sample.begin();
+                const double magnitude = settings->scope.spectrum[channel].magnitude;
+                const double offset = settings->scope.spectrum[channel].offset;
+
+                for(unsigned int position = 0; position < sampleCount; ++position) {
+                    *(glIterator++) = position * horizontalFactor - DIVS_TIME / 2; //X
+                    *(glIterator++) = *(dataIterator++) / magnitude + offset;      //Y
+                }
+            }
+        }
+        break;
+
+        case GraphFormat::XY:
             for(unsigned channel = 0; channel < settings->scope.voltage.size(); ++channel) {
                 // For even channel numbers check if this channel is used and this and the following channel are available at the data analyzer
                 if(channel % 2 == 0 && channel + 1 < settings->scope.voltage.size() && settings->scope.voltage[channel].used && dataAnalyzer->data(channel) && !dataAnalyzer->data(channel)->samples.voltage.sample.empty() && dataAnalyzer->data(channel + 1) && !dataAnalyzer->data(channel + 1)->samples.voltage.sample.empty()) {
@@ -186,10 +192,13 @@ void GlGenerator::generateGrid() {
             float dotPosition = (float) dot / DIVS_SUB;
             *(glIterator++) = -div;
             *(glIterator++) = -dotPosition;
+
             *(glIterator++) = -div;
             *(glIterator++) = dotPosition;
+
             *(glIterator++) = div;
             *(glIterator++) = -dotPosition;
+
             *(glIterator++) = div;
             *(glIterator++) = dotPosition;
         }

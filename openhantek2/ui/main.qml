@@ -73,6 +73,7 @@ ApplicationWindow {
     }
     MainForm {
         id: main
+        objectName: "main"
         anchors.fill: parent
         visible: currentDevice.valid
     }

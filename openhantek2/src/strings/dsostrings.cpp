@@ -26,37 +26,29 @@
 #include "dsostrings.h"
 
 namespace DsoStrings {
-    QString graphFormatString(GraphFormat format) {
-        switch(format) {
-            case GRAPHFORMAT_TY:
-                return QCoreApplication::tr("T - Y");
-            case GRAPHFORMAT_XY:
-                return QCoreApplication::tr("X - Y");
-            default:
-                return QString();
-        }
-    }
+    using namespace DSOAnalyser;
+    using namespace DSO;
 
     QString couplingString(Coupling coupling) {
         switch(coupling) {
-            case Coupling::COUPLING_AC:
+            case Coupling::AC:
                 return QCoreApplication::tr("AC");
-            case Coupling::COUPLING_DC:
+            case Coupling::DC:
                 return QCoreApplication::tr("DC");
-            case Coupling::COUPLING_GND:
+            case Coupling::GND:
                 return QCoreApplication::tr("GND");
             default:
                 return QString();
         }
     }
 
-    QString mathModeString(MathMode mode) {
+    QString mathModeString(DSOAnalyser::MathMode mode) {
         switch(mode) {
-            case MATHMODE_1ADD2:
+            case MathMode::ADD_CH1_CH2:
                 return QCoreApplication::tr("CH1 + CH2");
-            case MATHMODE_1SUB2:
+            case MathMode::SUB_CH2_FROM_CH1:
                 return QCoreApplication::tr("CH1 - CH2");
-            case MATHMODE_2SUB1:
+            case MathMode::SUB_CH1_FROM_CH2:
                 return QCoreApplication::tr("CH2 - CH1");
             default:
                 return QString();
@@ -65,11 +57,11 @@ namespace DsoStrings {
 
     QString triggerModeString(TriggerMode mode) {
         switch(mode) {
-            case TriggerMode::TRIGGERMODE_AUTO:
+            case TriggerMode::AUTO:
                 return QCoreApplication::tr("Auto");
-            case TriggerMode::TRIGGERMODE_NORMAL:
+            case TriggerMode::NORMAL:
                 return QCoreApplication::tr("Normal");
-            case TriggerMode::TRIGGERMODE_SINGLE:
+            case TriggerMode::SINGLE:
                 return QCoreApplication::tr("Single");
             default:
                 return QString();
@@ -78,9 +70,9 @@ namespace DsoStrings {
 
     QString slopeString(Slope slope) {
         switch(slope) {
-            case Slope::SLOPE_POSITIVE:
+            case Slope::POSITIVE:
                 return QString::fromUtf8("\u2197");
-            case Slope::SLOPE_NEGATIVE:
+            case Slope::NEGATIVE:
                 return QString::fromUtf8("\u2198");
             default:
                 return QString();

@@ -30,36 +30,28 @@
 /// \namespace Dso                                                         dso.h
 /// \brief All DSO specific things for different modes and so on.
 namespace DsoStrings {
-    using namespace DSO;
-    using namespace DSOAnalyser;
-
-    /// \brief Return string representation of the given graph format.
-    /// \param format The ::GraphFormat that should be returned as string.
-    /// \return The string that should be used in labels etc.
-    QString graphFormatString(GraphFormat format);
-
     /// \brief Return string representation of the given channel coupling.
     /// \param coupling The ::Coupling that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString couplingString(Coupling coupling);
+    QString couplingString(DSO::Coupling coupling);
 
     /// \brief Return string representation of the given math mode.
     /// \param mode The ::MathMode that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString mathModeString(MathMode mode);
+    QString mathModeString(DSOAnalyser::MathMode mode);
 
     /// \brief Return string representation of the given trigger mode.
     /// \param mode The ::TriggerMode that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString triggerModeString(TriggerMode mode);
+    QString triggerModeString(DSO::TriggerMode mode);
 
     /// \brief Return string representation of the given trigger slope.
     /// \param slope The ::Slope that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString slopeString(Slope slope);
+    QString slopeString(DSO::Slope slope);
 
     /// \brief Return string representation of the given dft window function.
     /// \param window The ::WindowFunction that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString windowFunctionString(WindowFunction window);
+    QString windowFunctionString(DSOAnalyser::WindowFunction window);
 }

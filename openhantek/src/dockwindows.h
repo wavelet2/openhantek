@@ -54,7 +54,7 @@ class HorizontalDock : public QDockWidget {
         void setSamplerate(double samplerate);
         void setTimebase(double timebase);
         void setRecordLength(unsigned int recordLength);
-        int setFormat(DSOAnalyser::GraphFormat format);
+        int setFormat(GraphFormat format);
 
     protected:
         void closeEvent(QCloseEvent *event);
@@ -94,7 +94,7 @@ class HorizontalDock : public QDockWidget {
         void samplerateChanged(double samplerate); ///< The samplerate has been changed
         void timebaseChanged(double timebase); ///< The timebase has been changed
         void recordLengthChanged(unsigned long recordLength); ///< The recordd length has been changed
-        void formatChanged(DSOAnalyser::GraphFormat format); ///< The viewing format has been changed
+        void formatChanged(GraphFormat format); ///< The viewing format has been changed
 };
 
 

@@ -42,16 +42,29 @@ namespace DsoStrings {
     /// \brief Return string representation of the given graph interpolation mode.
     /// \param interpolation The ::InterpolationMode that should be returned as string.
     /// \return The string that should be used in labels etc.
-    QString interpolationModeString(InterpolationMode interpolation) {
+    QString interpolationModeString(ScopeSettings::InterpolationMode interpolation) {
         switch(interpolation) {
-            case INTERPOLATION_OFF:
+            case ScopeSettings::INTERPOLATION_OFF:
                 return QCoreApplication::tr("Off");
-            case INTERPOLATION_LINEAR:
+            case ScopeSettings::INTERPOLATION_LINEAR:
                 return QCoreApplication::tr("Linear");
-            case INTERPOLATION_SINC:
+            case ScopeSettings::INTERPOLATION_SINC:
                 return QCoreApplication::tr("Sinc");
             default:
                 return QString();
         }
     }
+
+
+    QString graphFormatString(ScopeSettings::GraphFormat format) {
+        switch(format) {
+            case ScopeSettings::GraphFormat::TY:
+                return QCoreApplication::tr("T - Y");
+            case ScopeSettings::GraphFormat::XY:
+                return QCoreApplication::tr("X - Y");
+            default:
+                return QString();
+        }
+    }
+
 }
